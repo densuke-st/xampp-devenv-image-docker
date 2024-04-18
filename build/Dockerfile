@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y libzip-dev && docker-php-ext-install my
 # git環境をインストール
 RUN apt-get update && apt-get install -y git unzip && rm -fr /var/cache/apt/* /var/lib/apt/*
 # Python3をインストール、一緒にpipとpipenvもインストール
-RUN apt-get install -y python3 python3-pip pipenv
+RUN apt-get update && apt-get install -y python3 python3-pip pipenv && rm -fr /var/cache/apt/* /var/lib/apt/*
 RUN ln -s /usr/bin/python3 /usr/bin/python
 # ユーザーを追加
 RUN groupadd -g $USER_GID $USER_NAME && \
