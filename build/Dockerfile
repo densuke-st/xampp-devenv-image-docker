@@ -13,7 +13,7 @@ RUN ln -s /usr/bin/python3 /usr/bin/python
 RUN groupadd -g $USER_GID $USER_NAME && \
     useradd -u $USER_UID -g $USER_GID -s /bin/bash -m $USER_NAME
 # vscodeユーザーがsudoできるようにする
-RUN apt-get install -y sudo && \
+RUN apt-get update; apt-get install -y sudo && \
     echo "$USER_NAME ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers.d/$USER_NAME && \
     chmod 0440 /etc/sudoers.d/$USER_NAME && \
     rm -fr /var/cache/apt/* /var/lib/apt/*
