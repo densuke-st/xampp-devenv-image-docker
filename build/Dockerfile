@@ -36,6 +36,10 @@ RUN apk add --no-cache py3-pip
 RUN apk add --no-cache tzdata musl-locales && \
     ln -s /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
 RUN apk add --no-cache make
+RUN apk add --no-cache autoconf build-base linux-headers && \
+    pecl install xdebug && \
+    apk del -r autoconf build-base linux-headers && \
+    docker-php-ext-enable xdebug
 RUN cd /usr/local/etc/php; ln -sf php.ini-development php.ini
 USER ${USER_NAME}
 ENV TZ=Asia/Tokyo
