@@ -17,6 +17,15 @@ jobs:
         runs-on: ubuntu-latest
 
         steps:
+        - name: ブランチ名を取得して環境変数にセット
+          run: echo "BRANCH_NAME=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_ENV
+        - name: もしBRANCH_NAMEがmainならlatestに変更
+          run: |
+            if [ $BRANCH_NAME = "main" ]; then
+              echo "BRANCH_NAME=latest" >> $GITHUB_ENV
+            fi
+        - name: 変数BRANCH_NAMEの値を出力
+          run: echo $BRANCH_NAME
         - name: チェックアウト
           uses: actions/checkout@v4
         - name: "buildx: QEMUのセットアップ"
@@ -28,12 +37,12 @@ jobs:
           with:
             username: ${{ secrets.DOCKERHUB_USERNAME }}
             password: ${{ secrets.DOCKERHUB_TOKEN }}
-        - name: "イメージのビルド"
+        - name: "イメージのビルド、push時のタグはBRANCH_NAME変数の値を使う"
           uses: docker/build-push-action@v5
           with:
             context: .
             file: ./build/Dockerfile
             platforms: linux/amd64,linux/arm64
             push: true
-            tags: densukest/xampp-devenv:latest
+            tags: densukest/xampp-devenv:${{ env.BRANCH_NAME }}
 
