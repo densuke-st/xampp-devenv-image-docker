@@ -3,29 +3,17 @@ ARG USER_NAME=vscode
 ARG USER_UID=1000
 ARG USER_GID=1000
 # PHP拡張としてmysqliとzipをインストール
-RUN --mount=type=cache,target=/var/cache/apt \
-    --mount=type=cache,target=/var/lib/apt \
-    --mount=type=tmpfs,target=/tmp \
-    apt-get update && apt-get install -y libzip-dev && docker-php-ext-install mysqli zip
+RUN apt-get update && apt-get install -y libzip-dev && docker-php-ext-install mysqli zip
 # git環境をインストール
-RUN --mount=type=cache,target=/var/cache/apt \
-    --mount=type=cache,target=/var/lib/apt \
-    --mount=type=tmpfs,target=/tmp \
-    apt-get update && apt-get install -y git unzip
+RUN apt-get update && apt-get install -y git unzip
 # Python3をインストール、一緒にpipとpipenvもインストール
-RUN --mount=type=cache,target=/var/cache/apt \
-    --mount=type=cache,target=/var/lib/apt \
-    --mount=type=tmpfs,target=/tmp \
-    apt-get update && apt-get install -y python3 python3-pip pipenv
+RUN apt-get update && apt-get install -y python3 python3-pip pipenv
 RUN ln -s /usr/bin/python3 /usr/bin/python
 # ユーザーを追加
 RUN groupadd -g $USER_GID $USER_NAME && \
     useradd -u $USER_UID -g $USER_GID -s /bin/bash -m $USER_NAME
 # vscodeユーザーがsudoできるようにする
-RUN --mount=type=cache,target=/var/cache/apt \
-    --mount=type=cache,target=/var/lib/apt \
-    --mount=type=tmpfs,target=/tmp \
-    apt-get update; apt-get install -y sudo && \
+RUN apt-get update; apt-get install -y sudo && \
     echo "$USER_NAME ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers.d/$USER_NAME && \
     chmod 0440 /etc/sudoers.d/$USER_NAME
 
