@@ -36,6 +36,7 @@ RUN apk add --no-cache py3-pip
 RUN apk add --no-cache tzdata musl-locales && \
     ln -s /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
 RUN apk add --no-cache make
+RUN cd /usr/local/etc/php; ln -sf php.ini-development php.ini
 USER ${USER_NAME}
 ENV TZ=Asia/Tokyo
 ENV LC_ALL=ja_JP.UTF-8
