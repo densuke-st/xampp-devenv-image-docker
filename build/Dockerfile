@@ -47,6 +47,6 @@ ENV TZ=Asia/Tokyo
 ENV LC_ALL=ja_JP.UTF-8
 ENV HOME=/home/${USER_NAME}
 ENV PATH=$HOME/.local/bin:$PATH
-RUN pip3 install --user --break-system-packages pipenv selenium
+RUN pip install --user --break-system-packages selenium mysql-connector-python sqlalchemy
 WORKDIR /var/www/html
 ENTRYPOINT [ "/usr/local/bin/php", "-S", "0.0.0.0:80", "-t", "/var/www/html"]
