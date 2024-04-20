@@ -28,4 +28,4 @@ RUN mkdir -p -m 755 /etc/apt/keyrings && \
 USER ${USER_NAME}
 ENV HOME=/home/${USER_NAME}
 ENV PATH=$HOME/.local/bin:$PATH
-RUN pip install --user --break-system-packages selenium
+RUN pip install --user --break-system-packages selenium mysql-connector-python sqlalchemy
