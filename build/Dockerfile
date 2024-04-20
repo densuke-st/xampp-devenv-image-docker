@@ -41,6 +41,7 @@ RUN apk add --no-cache autoconf build-base linux-headers && \
     apk del -r autoconf build-base linux-headers && \
     docker-php-ext-enable xdebug
 RUN cd /usr/local/etc/php; ln -sf php.ini-development php.ini
+RUN apk add --no-cache docker-cli docker-cli-buildx
 USER ${USER_NAME}
 ENV TZ=Asia/Tokyo
 ENV LC_ALL=ja_JP.UTF-8
