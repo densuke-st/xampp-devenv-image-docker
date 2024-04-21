@@ -41,7 +41,14 @@ RUN apk add --no-cache autoconf build-base linux-headers && \
     apk del -r autoconf build-base linux-headers && \
     docker-php-ext-enable xdebug
 RUN cd /usr/local/etc/php; ln -sf php.ini-development php.ini
-RUN apk add --no-cache docker-cli docker-cli-buildx
+# alpine環境下で最新版のdocker cliをインストール
+ARG DOCKER_ENGINE_URL="https://download.docker.com/linux/static/stable"
+RUN set -x; \
+    URL="${DOCKER_ENGINE_URL}/`uname -m`"; \
+    ARC=$(curl -sL $URL | egrep -o -e "docker-[0-9.-]+.tgz" |tail -n1) && \
+    curl -sL $URL/$ARC | tar xvz && \
+    cd docker; install -m 0755 docker /usr/local/bin/
+
 USER ${USER_NAME}
 ENV TZ=Asia/Tokyo
 ENV LC_ALL=ja_JP.UTF-8
