@@ -4,53 +4,45 @@ ARG USER_UID=1000
 ARG USER_GID=1000
 # PHP拡張としてmysqli/pdo_mysqlとzipをインストール
 RUN apk add --no-cache libzip-dev bash && docker-php-ext-install mysqli pdo_mysql zip
-# # git環境をインストール
+# git環境をインストール
 RUN apk add --no-cache git unzip
-# RUN apt-get update && apt-get install -y git unzip
-# # Python3をインストール、一緒にpipとpipenvもインストール
-RUN apk add --no-cache python3
-# RUN apt-get update && apt-get install -y python3 python3-pip pipenv
-# # ユーザーを追加
-# RUN groupadd -g  $USER_GID $USER_NAME && \
-#     useradd -u $USER_UID -g $USER_GID -s /bin/bash -m $USER_NAME
+# Python環境をインストール
+RUN apk add --no-cache python3 py3-pip
+# ユーザーを追加
 RUN addgroup -g  $USER_GID $USER_NAME && \
     adduser -u $USER_UID -G $USER_NAME -D -s /bin/bash $USER_NAME
-# # vscodeユーザーがsudoできるようにする
-# RUN apt-get update; apt-get install -y sudo && \
-#     echo "$USER_NAME ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers.d/$USER_NAME && \
-#     chmod 0440 /etc/sudoers.d/$USER_NAME
+# vscodeユーザーがsudoできるようにする
 RUN apk add --no-cache sudo && \
     echo "$USER_NAME ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers.d/$USER_NAME && \
     chmod 0440 /etc/sudoers.d/$USER_NAME
 
-# # ghコマンドを追加
-# RUN mkdir -p -m 755 /etc/apt/keyrings && \
-#     curl -sL https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
-#         tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
-#     && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
-#     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | \
-#         tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
-#     && apt update && apt install gh -y ; rm -fr /var/cache/apt /var/lib/apt
+# ghコマンドを追加
 RUN apk add --no-cache github-cli
-RUN apk add --no-cache py3-pip
+
+# [WIP]ロケールの設定、日本語ロケールを有効化
 RUN apk add --no-cache tzdata musl-locales && \
     ln -s /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
-RUN apk add --no-cache make
-RUN apk add --no-cache autoconf build-base linux-headers && \
+
+# xdebugのインストール
+RUN apk add --no-cache make autoconf build-base linux-headers && \
     pecl install xdebug && \
     apk del -r autoconf build-base linux-headers && \
     docker-php-ext-enable xdebug
+# php.iniの設定(開発用)
 RUN cd /usr/local/etc/php; ln -sf php.ini-development php.ini
 # composerの持ち込み
 COPY --from=composer/composer /usr/bin/composer /usr/bin/composer
-# alpine環境下で最新版のdocker cliをインストール
-ARG DOCKER_ENGINE_URL="https://download.docker.com/linux/static/stable"
-RUN set -x; \
-    URL="${DOCKER_ENGINE_URL}/`uname -m`"; \
-    ARC=$(curl -sL $URL | egrep -o -e "docker-[0-9.-]+.tgz" |tail -n1) && \
-    curl -sL $URL/$ARC | tar xvz && \
-    cd docker; install -m 0755 docker /usr/local/bin/
 
+# # alpine環境下で最新版のdocker cliをインストール
+# # 現在は不要なのでコメントアウト
+# ARG DOCKER_ENGINE_URL="https://download.docker.com/linux/static/stable"
+# RUN set -x; \
+#     URL="${DOCKER_ENGINE_URL}/`uname -m`"; \
+#     ARC=$(curl -sL $URL | egrep -o -e "docker-[0-9.-]+.tgz" |tail -n1) && \
+#     curl -sL $URL/$ARC | tar xvz && \
+#     cd docker; install -m 0755 docker /usr/local/bin/
+
+# 開発用ユーザーに切り替えて、適宜環境変数をセット
 USER ${USER_NAME}
 ENV TZ=Asia/Tokyo
 ENV LC_ALL=ja_JP.UTF-8
