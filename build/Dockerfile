@@ -3,7 +3,7 @@ ARG USER_NAME=vscode
 ARG USER_UID=1000
 ARG USER_GID=1000
 # PHP拡張としてmysqli/pdo_mysqlとzipをインストール
-RUN apk add --no-cache libzip-dev bash && docker-php-ext-install mysqli pdo_mysql zip
+RUN apk add --no-cache libzip-dev bash && MAKEFLAGS="-j$(nproc)" docker-php-ext-install mysqli pdo_mysql zip
 # git環境をインストール
 RUN apk add --no-cache git unzip
 # Python環境をインストール
