@@ -41,6 +41,8 @@ RUN apk add --no-cache autoconf build-base linux-headers && \
     apk del -r autoconf build-base linux-headers && \
     docker-php-ext-enable xdebug
 RUN cd /usr/local/etc/php; ln -sf php.ini-development php.ini
+# composerの持ち込み
+COPY --from=composer/composer /usr/bin/composer /usr/bin/composer
 # alpine環境下で最新版のdocker cliをインストール
 ARG DOCKER_ENGINE_URL="https://download.docker.com/linux/static/stable"
 RUN set -x; \
