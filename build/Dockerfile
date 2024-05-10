@@ -43,7 +43,7 @@ COPY --from=composer/composer /usr/bin/composer /usr/bin/composer
 #     cd docker; install -m 0755 docker /usr/local/bin/
 
 # CLIアクセス用にmysql-clientをインストール
-RUN apk add --no-cache mysql-client
+RUN apk add --no-cache mysql-client mariadb-connector-c-dev
 
 # 開発用ユーザーに切り替えて、適宜環境変数をセット
 USER ${USER_NAME}
