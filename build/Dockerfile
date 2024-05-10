@@ -42,6 +42,9 @@ COPY --from=composer/composer /usr/bin/composer /usr/bin/composer
 #     curl -sL $URL/$ARC | tar xvz && \
 #     cd docker; install -m 0755 docker /usr/local/bin/
 
+# CLIアクセス用にmysql-clientをインストール
+RUN apk add --no-cache mysql-client
+
 # 開発用ユーザーに切り替えて、適宜環境変数をセット
 USER ${USER_NAME}
 ENV TZ=Asia/Tokyo
