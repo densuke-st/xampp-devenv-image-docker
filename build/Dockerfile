@@ -29,7 +29,8 @@ RUN apk add --no-cache make autoconf build-base linux-headers && \
     apk del -r autoconf build-base linux-headers && \
     docker-php-ext-enable xdebug
 # php.iniの設定(開発用)
-RUN cd /usr/local/etc/php; ln -sf php.ini-development php.ini
+RUN cd /usr/local/etc/php; ln -sf php.ini-development php.ini && \
+    (echo '[Date]'; echo 'date.timezone = "Asia/Tokyo"') >> php.ini
 # composerの持ち込み
 COPY --from=composer/composer /usr/bin/composer /usr/bin/composer
 
