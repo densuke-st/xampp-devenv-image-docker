@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# 一時ディレクトリ上で代わりにcomposerを実行して、できあがった結果をカレントディレクトリにコピーしてマージする
+WORKDIR=$(mktemp -d)
+
+cleanup () {
+    rm -fr ${WORKDIR}
+}
+trap cleanup EXIT
+
+CURDIR=${PWD}
+cd "${WORKDIR}"
+
+# composerを引数の通りで実行する
+composer "$@"
+# vendorは不要なので削除
+rm -fr vendor
+# .gitignoreが存在していたらマージするために対応
+[ -f .gitignore ] && mv .gitignore /tmp/dot.gitignore
+# マージ処理
+cp -vr . ${CURDIR}
+cd ${CURDIR}
+# .gitignoreが存在していたらマージする
+if [ -f .gitignore ]; then
+    cat /tmp/dot.gitignore >> .gitignore
+else
+    mv /tmp/dot.gitignore .gitignore
+fi
+# 依存パッケージのインストール
+composer install
