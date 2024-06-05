@@ -46,6 +46,9 @@ COPY --from=composer/composer /usr/bin/composer /usr/bin/composer
 # CLIアクセス用にmysql-clientをインストール
 RUN apk add --no-cache mysql-client mariadb-connector-c-dev
 
+COPY docker-composer /usr/local/bin/docker-composer
+RUN chmod +x /usr/local/bin/docker-composer
+
 # 開発用ユーザーに切り替えて、適宜環境変数をセット
 USER ${USER_NAME}
 ENV TZ=Asia/Tokyo
@@ -54,4 +57,4 @@ ENV HOME=/home/${USER_NAME}
 ENV PATH=$HOME/.local/bin:$PATH
 RUN pip install --user --break-system-packages selenium mysql-connector-python sqlalchemy
 WORKDIR /var/www/html
-ENTRYPOINT [ "/usr/local/bin/php", "-S", "0.0.0.0:80", "-t", "/var/www/html"]
+ENTRYPOINT [ "/usr/local/bin/php", "-S", "0.0.0.0:80", "-t", "/var/www/html/public"]
