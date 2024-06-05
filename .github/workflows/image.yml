@@ -42,7 +42,6 @@ jobs:
           uses: docker/build-push-action@v5
           with:
             context: build
-            file: Dockerfile
             platforms: linux/amd64,linux/arm64
             push: true
             tags: densukest/xampp-devenv:${{ env.BRANCH_NAME }}
