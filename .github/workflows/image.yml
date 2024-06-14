@@ -33,8 +33,8 @@ jobs:
           run: |
             if [ $BRANCH_NAME = "main" ]; then
               echo "BRANCH_NAME=latest" >> $GITHUB_ENV
-              echo "EPOCH_TIME=$(date +%s)" >> $GITHUB_ENV
             fi
+            echo "EPOCH_TIME=$(date +%s)" >> $GITHUB_ENV
         - name: 変数BRANCH_NAMEの値を出力
           run: echo $BRANCH_NAME
         - name: チェックアウト
