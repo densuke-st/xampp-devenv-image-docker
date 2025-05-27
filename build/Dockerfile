@@ -1,3 +1,6 @@
+#FROM php:apache
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm as uv-source
+# ---
 FROM php:8.3-apache
 ARG USER_NAME=vscode
 ARG USER_UID=1000
@@ -31,6 +34,8 @@ RUN mkdir -p -m 755 /etc/apt/keyrings && \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | \
         tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
     && apt update && apt install gh -y ; rm -fr /var/cache/apt /var/lib/apt
+# uvコマンド
+COPY --from=uv-source /usr/local/bin/uv /usr/local/bin/uvx /usr/local bin/
 
 USER ${USER_NAME}
 ENV HOME=/home/${USER_NAME}
