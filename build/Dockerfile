@@ -9,6 +9,8 @@ RUN apt-get update && apt-get install -y git unzip
 # Python3をインストール、一緒にpipとpipenvもインストール
 RUN apt-get update && apt-get install -y python3 python3-pip pipenv
 RUN ln -s /usr/bin/python3 /usr/bin/python
+# PHPを開発モードに設定
+RUN cd /usr/local/etc/php && ln -sf php.ini-development php.ini
 # ユーザーを追加
 RUN groupadd -g $USER_GID $USER_NAME && \
     useradd -u $USER_UID -g $USER_GID -s /bin/bash -m $USER_NAME
