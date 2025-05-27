@@ -1,4 +1,4 @@
-FROM php:apache
+FROM php:8.3-apache
 ARG USER_NAME=vscode
 ARG USER_UID=1000
 ARG USER_GID=1000
