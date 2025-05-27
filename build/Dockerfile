@@ -3,7 +3,7 @@ ARG USER_NAME=vscode
 ARG USER_UID=1000
 ARG USER_GID=1000
 # PHP拡張としてmysqliとzipをインストール
-RUN apt-get update && apt-get install -y libzip-dev && docker-php-ext-install mysqli zip
+RUN apt-get update && apt-get install -y libzip-dev && docker-php-ext-install mysqli pdo_mysql zip
 # git環境をインストール
 RUN apt-get update && apt-get install -y git unzip
 # Python3をインストール、一緒にpipとpipenvもインストール
