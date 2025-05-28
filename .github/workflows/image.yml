@@ -5,14 +5,32 @@ name: Docker Image CI
 
 on:
     push:
-        branches-ignore:
-        - release/*
-    pull_request:
-        branches-ignore:
-        - release/*
+        branches:
+          - main
     workflow_dispatch: # 手動実行
 
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+
+    # actで実行しているかのチェック(一部のアクションを動かさないようにするため)
+    check-act:
+      runs-on: ubuntu-latest
+      outputs:
+        IS_ACT: ${{ steps.check-act.outputs.IS_ACT }}
+      steps:
+        - name: actのチェック
+          id: check-act
+          run: |
+            R=false
+            [ -n "$ACT" ] && R=true
+            [ -n "$GITHUB_EVENT_NAME" ] && [ "$GITHUB_EVENT_NAME" = "pull_request" ] && R=true
+            echo "IS_ACT=$R" >> $GITHUB_OUTPUT
+
+   # シリアル値を生成するジョブ
     make-serial:
       runs-on: ubuntu-latest
       outputs:
@@ -24,10 +42,20 @@ jobs:
           run: echo "SERIAL_VALUE=$(date +%s)" >> $GITHUB_OUTPUT
 
     build:
-        runs-on: ubuntu-latest
         needs:
           - make-serial
-
+          - check-act
+        strategy:
+          fail-fast: true
+          matrix:
+            include:
+              - platform: linux/amd64
+                runner: ubuntu-24.04
+                tag_suffix: amd64
+              - platform: linux/arm64
+                runner: ${{ needs.check-act.outputs.IS_ACT == 'true' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
+                tag_suffix: arm64
+        runs-on: ${{ matrix.runner }}
         steps:
         - name: チェックアウト
           uses: actions/checkout@v4
@@ -37,6 +65,7 @@ jobs:
           uses: docker/setup-buildx-action@v3
         - name: "dockerへのログイン"
           uses: docker/login-action@v3
+          if: needs.check-act.outputs.IS_ACT != 'true'
           with:
             username: ${{ secrets.DOCKERHUB_USERNAME }}
             password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -45,7 +74,53 @@ jobs:
           with:
             context: .
             file: ./build/Dockerfile
-            platforms: linux/amd64,linux/arm64
-            push: true
-            tags: densukest/xampp-devenv:latest,densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}
+            platforms: ${{ matrix.platform }}
+            push: ${{ needs.check-act.outputs.IS_ACT != 'true' }}
+            load: ${{ needs.check-act.outputs.IS_ACT == 'true' }}
+            tags: densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-${{ matrix.tag_suffix }}
+        - name: "(act上)イメージの削除"
+          if: needs.check-act.outputs.IS_ACT == 'true'
+          run: |
+            docker rmi densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-${{ matrix.tag_suffix }} || true
+    
+    # マニフェストを作成して両アーキテクチャを統合利用(actでは実行しない)
+    create-manifest:
+      runs-on: ubuntu-24.04
+      timeout-minutes: 1
+      needs:
+        - build
+        - check-act
+        - make-serial
+      if: needs.check-act.outputs.IS_ACT != 'true'
+      steps:
+        - name: Dockerにログイン
+          uses: docker/login-action@v3
+          with:
+            username: ${{ secrets.DOCKERHUB_USERNAME }}
+            password: ${{ secrets.DOCKERHUB_TOKEN }}
+        - name: マニフェストの作成
+          run: |
+            docker manifest create densukest/xampp-devenv:latest \
+              densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-amd64 \
+              densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-arm64
+            docker manifest create densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }} \
+              densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-amd64 \
+              densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-arm64
+            docker manifest push densukest/xampp-devenv:latest
+            docker manifest push densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}
 
+    # act環境の際、残ってるイメージデータなどを削除しておく
+    cleanup:
+      runs-on: ubuntu-24.04
+      needs:
+        - build
+        - create-manifest
+      if: needs.check-act.outputs.IS_ACT == 'true'
+      steps:
+        - name: act環境のイメージ削除
+          run: |
+            docker rmi densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-amd64 || true
+            docker rmi densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-arm64 || true
+            docker rmi densukest/xampp-devenv:latest || true
+            docker rmi densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }} || true
+            docker image prune -f
