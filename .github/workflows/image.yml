@@ -100,11 +100,13 @@ jobs:
             password: ${{ secrets.DOCKERHUB_TOKEN }}
         - name: マニフェストの作成(latest)
           run: |
+            set -x
             docker manifest create densukest/xampp-devenv:latest \
               densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-amd64 \
               densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-arm64
         - name: マニフェストの作成(シリアル値)
           run: |
+            set -x
             docker manifest create densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }} \
               densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-amd64 \
               densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-arm64
