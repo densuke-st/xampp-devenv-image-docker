@@ -77,7 +77,6 @@ EOT
 
 # uvコマンド
 COPY --from=uv-source /usr/local/bin/uv /usr/local/bin/uvx /usr/local/bin/
-RUN uv toolchain install python 3.13
 
 USER ${USER_NAME}
 ENV HOME=/home/${USER_NAME}
