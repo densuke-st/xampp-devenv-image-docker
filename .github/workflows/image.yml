@@ -9,6 +9,11 @@ on:
           - main
     workflow_dispatch: # 手動実行
 
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
 
     # actで実行しているかのチェック(一部のアクションを動かさないようにするため)
