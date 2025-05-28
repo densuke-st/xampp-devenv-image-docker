@@ -25,21 +25,11 @@ jobs:
         - name: actのチェック
           id: check-act
           run: |
-            if [ -n "$ACT" ]; then
-              echo "IS_ACT=true" >> $GITHUB_OUTPUT
-              exit 0
-            else
-              echo "IS_ACT=false" >> $GITHUB_OUTPUT
-              exit 0
-            fi
-            # もしこの起動がプルリクであれば、同様にIS_ACTを設定して代用する
-            if [ -n "$GITHUB_EVENT_NAME" ] && [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
-              echo "IS_ACT=true" >> $GITHUB_OUTPUT
-              exit 0
-            else
-              echo "IS_ACT=false" >> $GITHUB_OUTPUT
-              exit 0
-            fi
+            R=false
+            [ -n "$ACT" ] && R=true
+            [ -n "$GITHUB_EVENT_NAME" ] && [ "$GITHUB_EVENT_NAME" = "pull_request" ] && R=true
+            echo "IS_ACT=$R" >> $GITHUB_OUTPUT
+
    # シリアル値を生成するジョブ
     make-serial:
       runs-on: ubuntu-latest
