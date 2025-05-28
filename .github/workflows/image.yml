@@ -115,7 +115,7 @@ jobs:
       needs:
         - build
         - create-manifest
-      if: needs.check-act.outputs.IS_ACT == true
+      if: needs.check-act.outputs.IS_ACT == 'true'
       steps:
         - name: act環境のイメージ削除
           run: |
