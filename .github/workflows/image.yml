@@ -103,12 +103,14 @@ jobs:
             docker manifest create densukest/xampp-devenv:latest \
               densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-amd64 \
               densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-arm64
-              docker manifest push densukest/xampp-devenv:latest
         - name: マニフェストの作成(シリアル値)
           run: |
             docker manifest create densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }} \
               densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-amd64 \
               densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-arm64
+        - name: マニフェストのプッシュ
+          run: |
+            docker manifest push densukest/xampp-devenv:latest
             docker manifest push densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}
 
     # act環境の際、残ってるイメージデータなどを削除しておく
