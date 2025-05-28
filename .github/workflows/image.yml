@@ -67,8 +67,9 @@ jobs:
           uses: docker/login-action@v3
           if: needs.check-act.outputs.IS_ACT != 'true'
           with:
-            username: ${{ secrets.DOCKERHUB_USERNAME }}
-            password: ${{ secrets.DOCKERHUB_TOKEN }}
+            registry: ghcr.io
+            username: ${{ github.actor }}
+            password: ${{ secrets.GITHUB_TOKEN }}
         - name: "イメージのビルド"
           uses: docker/build-push-action@v5
           with:
@@ -77,11 +78,11 @@ jobs:
             platforms: ${{ matrix.platform }}
             push: ${{ needs.check-act.outputs.IS_ACT != 'true' }}
             load: ${{ needs.check-act.outputs.IS_ACT == 'true' }}
-            tags: densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-${{ matrix.tag_suffix }}
+            tags: ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-${{ matrix.tag_suffix }}
         - name: "(act上)イメージの削除"
           if: needs.check-act.outputs.IS_ACT == 'true'
           run: |
-            docker rmi densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-${{ matrix.tag_suffix }} || true
+            docker rmi ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-${{ matrix.tag_suffix }} || true
     
     # マニフェストを作成して両アーキテクチャを統合利用(actでは実行しない)
     create-manifest:
@@ -93,27 +94,28 @@ jobs:
         - make-serial
       if: needs.check-act.outputs.IS_ACT != 'true'
       steps:
-        - name: Dockerにログイン
+        - name: GHCRにログイン
           uses: docker/login-action@v3
           with:
-            username: ${{ secrets.DOCKERHUB_USERNAME }}
-            password: ${{ secrets.DOCKERHUB_TOKEN }}
+            registry: ghcr.io
+            username: ${{ github.actor }}
+            password: ${{ secrets.GITHUB_TOKEN }}
         - name: マニフェストの作成(latest)
           run: |
             set -x
-            docker manifest create densukest/xampp-devenv:latest \
-              densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-amd64 \
-              densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-arm64
+            docker manifest create ghcr.io/${{ github.repository_owner }}/xampp-devenv:latest \
+              ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-amd64 \
+              ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-arm64
         - name: マニフェストの作成(シリアル値)
           run: |
             set -x
-            docker manifest create densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }} \
-              densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-amd64 \
-              densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-arm64
+            docker manifest create ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }} \
+              ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-amd64 \
+              ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-arm64
         - name: マニフェストのプッシュ
           run: |
-            docker manifest push densukest/xampp-devenv:latest
-            docker manifest push densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}
+            docker manifest push ghcr.io/${{ github.repository_owner }}/xampp-devenv:latest
+            docker manifest push ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}
 
     # act環境の際、残ってるイメージデータなどを削除しておく
     cleanup:
@@ -125,8 +127,8 @@ jobs:
       steps:
         - name: act環境のイメージ削除
           run: |
-            docker rmi densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-amd64 || true
-            docker rmi densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-arm64 || true
-            docker rmi densukest/xampp-devenv:latest || true
-            docker rmi densukest/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }} || true
+            docker rmi ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-amd64 || true
+            docker rmi ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-arm64 || true
+            docker rmi ghcr.io/${{ github.repository_owner }}/xampp-devenv:latest || true
+            docker rmi ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }} || true
             docker image prune -f

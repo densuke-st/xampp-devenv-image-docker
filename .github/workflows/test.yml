@@ -57,8 +57,9 @@ jobs:
           uses: docker/login-action@v3
           if: needs.check-act.outputs.IS_ACT != 'true'
           with:
-            username: ${{ secrets.DOCKERHUB_USERNAME }}
-            password: ${{ secrets.DOCKERHUB_TOKEN }}
+            registry: ghcr.io
+            username: ${{ github.actor }}
+            password: ${{ secrets.GITHUB_TOKEN }}
         - name: "イメージのビルド"
           uses: docker/build-push-action@v5
           with:
@@ -67,9 +68,8 @@ jobs:
             platforms: ${{ matrix.platform }}
             push: ${{ needs.check-act.outputs.IS_ACT != 'true' }}
             load: ${{ needs.check-act.outputs.IS_ACT == 'true' }}
-            tags: densukest/xampp-devenv:testing-${{ matrix.tag_suffix }}
+            tags: ghcr.io/${{ github.repository_owner }}/xampp-devenv:testing-${{ matrix.tag_suffix }}
         - name: "(act上)イメージの削除"
           if: needs.check-act.outputs.IS_ACT == 'true'
           run: |
-            docker rmi densukest/xampp-devenv:testing-${{ matrix.tag_suffix }} || true
-    
+            docker rmi ghcr.io/${{ github.repository_owner }}/xampp-devenv:testing-${{ matrix.tag_suffix }} || true
