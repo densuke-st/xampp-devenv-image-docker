@@ -1,5 +1,5 @@
 #FROM php:apache
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm as uv-source
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm AS uv-source
 # ---
 FROM php:8.3-apache
 ARG USER_NAME=vscode
