@@ -59,7 +59,6 @@ RUN <<EOT
     # exts.tar.gzからPHP拡張を復元
     tar xvfz /tmp/exts.tar.gz && 
     rm -vf /tmp/exts.tar.gz &&
-    cd etc/php &&
     # PHPの設定を開発モードにする
     cd /usr/local/etc/php && 
     ln -sf php.ini-development php.ini &&
