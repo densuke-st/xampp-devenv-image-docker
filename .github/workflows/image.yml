@@ -9,6 +9,11 @@ on:
           - main
     workflow_dispatch: # 手動実行
 
+# GHCRへのプッシュにはパーミッションが必要です
+permissions:
+  contents: read
+  packages: write
+  id-token: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -76,8 +81,8 @@ jobs:
             context: .
             file: ./build/Dockerfile
             platforms: ${{ matrix.platform }}
-            push: ${{ needs.check-act.outputs.IS_ACT != 'true' }}
-            load: ${{ needs.check-act.outputs.IS_ACT == 'true' }}
+            push: true
+            load: true
             tags: ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-${{ matrix.tag_suffix }}
         - name: "(act上)イメージの削除"
           if: needs.check-act.outputs.IS_ACT == 'true'
