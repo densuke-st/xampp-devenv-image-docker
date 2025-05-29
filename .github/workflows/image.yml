@@ -82,7 +82,8 @@ jobs:
             file: ./build/Dockerfile
             platforms: ${{ matrix.platform }}
             push: true
-            load: true
+            load: false
+            provenance: false
             tags: ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-${{ matrix.tag_suffix }}
         - name: "(act上)イメージの削除"
           if: needs.check-act.outputs.IS_ACT == 'true'
@@ -105,25 +106,23 @@ jobs:
             registry: ghcr.io
             username: ${{ github.actor }}
             password: ${{ secrets.GITHUB_TOKEN }}
-        - name: 既存のマニフェストを削除する
-          run: |
-            docker manifest rm ghcr.io/${{ github.repository_owner }}/xampp-devenv:latest || true
-            docker manifest rm ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }} || true
+        # - name: 既存のマニフェストを削除する
+        #   run: |
+        #     docker manifest rm ghcr.io/${{ github.repository_owner }}/xampp-devenv:latest || true
+        #     docker manifest rm ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }} || true
 
         - name: マニフェストの作成(latest)
           run: |
             set -x
             docker manifest create ghcr.io/${{ github.repository_owner }}/xampp-devenv:latest \
-              ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-amd64
-            docker manifest create ghcr.io/${{ github.repository_owner }}/xampp-devenv:latest \
-              --amend ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-arm64
+              ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-amd64 \
+              ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-arm64
         - name: マニフェストの作成(シリアル値)
           run: |
             set -x
             docker manifest create ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }} \
-              --amend ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-amd64
-            docker manifest create ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }} \
-              --amend ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-arm64
+              ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-amd64 \
+              ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-arm64
         - name: マニフェストのプッシュ
           run: |
             docker manifest push ghcr.io/${{ github.repository_owner }}/xampp-devenv:latest
