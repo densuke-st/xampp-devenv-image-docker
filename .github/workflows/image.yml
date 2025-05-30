@@ -43,8 +43,8 @@ jobs:
       steps:
         - name: シリアル値の生成
           id: generate-serial
-          # シリアル値はここではepoch秒とする
-          run: echo "SERIAL_VALUE=$(date +%s)" >> $GITHUB_OUTPUT
+          # シリアル値はここでは日時(YYYYMMDDHHMMSS)とする
+          run: echo "SERIAL_VALUE=$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
 
     build:
         needs:
