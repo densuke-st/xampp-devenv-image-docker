@@ -46,9 +46,26 @@ jobs:
           # シリアル値はここではepoch秒とする
           run: echo "SERIAL_VALUE=$(date +%s)" >> $GITHUB_OUTPUT
 
+
+    # イメージ名を生成する、後で何度も使いそうなので集約しておきたい
+    make-imagename:
+        runs-on: ubuntu-latest
+        needs:
+          - make-serial
+        outputs:
+          image_name_tag: ${{ steps.generate-imagename.outputs.image_name_tag }}
+          image_name_latest: ${{ steps.generate-imagename.outputs.image_name_latest }}
+        steps:
+        - name: イメージ名の生成
+          id: generate-imagename
+          run: |
+            BASENAME=ghcr.io/${{ github.repository_owner }}/xampp-devenv
+            echo "image_name_tag=${BASENAME}:${{ needs.make-serial.outputs.SERIAL_VALUE }}" >> $GITHUB_OUTPUT
+            echo "image_name_latest=${BASENAME}:latest" >> $GITHUB_OUTPUT
     build:
         needs:
           - make-serial
+          - make-imagename
           - check-act
         strategy:
           fail-fast: true
@@ -84,11 +101,11 @@ jobs:
             push: true
             load: false
             provenance: false
-            tags: ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-${{ matrix.tag_suffix }}
+            tags: ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_suffix }}
         - name: "(act上)イメージの削除"
           if: needs.check-act.outputs.IS_ACT == 'true'
           run: |
-            docker rmi ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-${{ matrix.tag_suffix }} || true
+            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_suffix }} || true
     
     # マニフェストを作成して両アーキテクチャを統合利用(actでは実行しない)
     create-manifest:
@@ -98,6 +115,7 @@ jobs:
         - build
         - check-act
         - make-serial
+        - make-imagename
       if: needs.check-act.outputs.IS_ACT != 'true'
       steps:
         - name: GHCRにログイン
@@ -110,19 +128,19 @@ jobs:
         - name: マニフェストの作成(latest)
           run: |
             set -x
-            docker manifest create ghcr.io/${{ github.repository_owner }}/xampp-devenv:latest \
-              ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-amd64 \
-              ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-arm64
+            docker manifest create ${{ needs.make-imagename.outputs.image_name_latest }}}} \
+              ${{ needs.make-imagename.outputs.image_name_tag }}-amd64 \
+              ${{ needs.make-imagename.outputs.image_name_tag }}-arm64
         - name: マニフェストの作成(シリアル値)
           run: |
             set -x
-            docker manifest create ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }} \
-              ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-amd64 \
-              ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-arm64
+            docker manifest create ${{ needs.make-imagename.outputs.image_name_tag }} \
+              ${{ needs.make-imagename.outputs.image_name_tag }}-amd64 \
+              ${{ needs.make-imagename.outputs.image_name_tag }}-arm64
         - name: マニフェストのプッシュ
           run: |
-            docker manifest push ghcr.io/${{ github.repository_owner }}/xampp-devenv:latest
-            docker manifest push ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}
+            docker manifest push ${{ needs.make-imagename.outputs.image_name_latest }}
+            docker manifest push ${{ needs.make-imagename.outputs.image_name_tag }}
 
     # act環境の際、残ってるイメージデータなどを削除しておく
     cleanup:
@@ -130,12 +148,13 @@ jobs:
       needs:
         - build
         - create-manifest
+        - make-imagename
       if: needs.check-act.outputs.IS_ACT == 'true'
       steps:
         - name: act環境のイメージ削除
           run: |
-            docker rmi ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-amd64 || true
-            docker rmi ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }}-arm64 || true
-            docker rmi ghcr.io/${{ github.repository_owner }}/xampp-devenv:latest || true
-            docker rmi ghcr.io/${{ github.repository_owner }}/xampp-devenv:${{ needs.make-serial.outputs.SERIAL_VALUE }} || true
+            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-amd64 || true
+            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-arm64 || true
+            docker rmi ${{ needs.make-imagename.outputs.image_name_latest }} || true
+            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }} || true
             docker image prune -f
