@@ -158,3 +158,44 @@ jobs:
             docker rmi ${{ needs.make-imagename.outputs.image_name_latest }} || true
             docker rmi ${{ needs.make-imagename.outputs.image_name_tag }} || true
             docker image prune -f
+
+    update-template-repo:
+      runs-on: ubuntu-latest
+      needs:
+        - create-manifest
+        - make-imagename
+      if: needs.check-act.outputs.IS_ACT != 'true'
+      steps:
+        - name: リポジトリのクローン
+          uses: actions/checkout@v4
+          with:
+            repository: kd-it/xampp-devenv-template
+            token: ${{ secrets.TEMPLATE_TOKEN }}
+            path: template-repo
+
+        - name: イメージタグの置換
+          run: |
+            cd template-repo
+            # 例: docker-compose.ymlのイメージタグを置換
+            sed -i "s|ghcr.io/densuke-st/xampp-devenv:[^ ]*|${{ needs.make-imagename.outputs.image_name_tag }}|g" docker-compose.yml
+            # 必要に応じて他ファイルも置換
+
+        - name: 新しいブランチを作成してpush
+          run: |
+            cd template-repo
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            BRANCH=update-xampp-tag-$(date +%Y%m%d%H%M%S)
+            git checkout -b $BRANCH
+            git add .
+            git commit -m "Update xampp-devenv image tag to ${{ needs.make-imagename.outputs.image_name_tag }}"
+            git push origin $BRANCH
+
+        - name: PRを作成
+          run: |
+            cd template-repo
+            gh pr create --title "Update xampp-devenv image tag" \
+              --body "自動更新: 新しいイメージタグ ${{ needs.make-imagename.outputs.image_name_tag }} への更新です。" \
+              --base main --head $BRANCH
+          env:
+            GITHUB_TOKEN: ${{ secrets.TEMPLATE_TOKEN }}
