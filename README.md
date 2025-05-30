@@ -17,8 +17,8 @@
 たとえばイメージの取得であれば、以下の操作で行えます。
 
 ```bash
-$ git image pull ghcr.io/densuke/xampp-devenv:latest    # latest
-$ git image pull ghcr.io/densuke/xampp-devenv:748507667 # 特定のビルド
+$ git image pull ghcr.io/densuke-st/xampp-devenv:latest    # latest
+$ git image pull ghcr.io/densuke-st/xampp-devenv:748507667 # 特定のビルド
 ```
 
 タグは以下のルールで付与しています。
