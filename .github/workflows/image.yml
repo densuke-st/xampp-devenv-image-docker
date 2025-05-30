@@ -177,7 +177,7 @@ jobs:
           run: |
             cd template-repo
             # 例: docker-compose.ymlのイメージタグを置換
-            sed -i "s|ghcr.io/densuke-st/xampp-devenv:[^ ]*|${{ needs.make-imagename.outputs.image_name_tag }}|g" docker-compose.yml
+            sed -i "s|ghcr.io/densuke-st/xampp-devenv:[^ ]*|${{ needs.make-imagename.outputs.image_name_tag }}|g" compose.yml
             # 必要に応じて他ファイルも置換
 
         - name: 新しいブランチを作成してpush
