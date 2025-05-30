@@ -23,13 +23,13 @@
 
 ```bash
 $ docker image pull ghcr.io/densuke-st/xampp-devenv:latest    # latest
-$ docker image pull ghcr.io/densuke-st/xampp-devenv:748507667 # 特定のビルド
+$ docker image pull ghcr.io/densuke-st/xampp-devenv:20240531074228 # 特定のビルド
 ```
 
 タグは以下のルールで付与しています。
 
-- 各ビルドに対してビルド時の**エポック秒ベースのタイムスタンプ**(例: 1748507667)を使用しています。
-    - "エポック秒ベース-arch" も存在していますが、いちいち選んで使うことは無いと思います。
+- 各ビルドに対してビルド時の**日時ベースのタイムスタンプ**(例: 20240531074228, YYYYMMDDHHMMSS形式)を使用しています。
+    - "日時ベース-arch" も存在していますが、いちいち選んで使うことは無いと思います。
         - amd64
         - arm64
 - 最新のビルドにはlatestも付与されています(通常のDockerの利用に対応)。
