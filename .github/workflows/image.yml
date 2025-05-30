@@ -128,7 +128,7 @@ jobs:
         - name: マニフェストの作成(latest)
           run: |
             set -x
-            docker manifest create ${{ needs.make-imagename.outputs.image_name_latest }}}} \
+            docker manifest create ${{ needs.make-imagename.outputs.image_name_latest }} \
               ${{ needs.make-imagename.outputs.image_name_tag }}-amd64 \
               ${{ needs.make-imagename.outputs.image_name_tag }}-arm64
         - name: マニフェストの作成(シリアル値)
