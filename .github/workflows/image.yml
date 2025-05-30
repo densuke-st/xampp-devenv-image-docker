@@ -181,11 +181,13 @@ jobs:
             # 必要に応じて他ファイルも置換
 
         - name: 新しいブランチを作成してpush
+          id: create-branch
           run: |
             cd template-repo
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             BRANCH=update-xampp-tag-$(date +%Y%m%d%H%M%S)
+            echo "branch=${BRANCH}" >> $GITHUB_OUTPUT
             git checkout -b $BRANCH
             git add .
             git commit -m "Update xampp-devenv image tag to ${{ needs.make-imagename.outputs.image_name_tag }}"
@@ -196,6 +198,6 @@ jobs:
             cd template-repo
             gh pr create --title "Update xampp-devenv image tag" \
               --body "自動更新: 新しいイメージタグ ${{ needs.make-imagename.outputs.image_name_tag }} への更新です。" \
-              --base main --head $BRANCH
+              --base main --head ${{ steps.create-branch.outputs.branch }} 
           env:
             GITHUB_TOKEN: ${{ secrets.TEMPLATE_TOKEN }}
