@@ -1,5 +1,8 @@
-# build/Dockerfileを使って、イメージ densukest/xampp-devenv:latest をビルドする
-# ビルド後イメージを densukest/xampp-devenv:latest としてpushする
+# build/Dockerfileを使って、イメージ ghcr.io/densuke-st/xampp-devenv:latest をビルドして、pushする
+# ただしタグ名はブランチ名によって変わる
+# * mainブランチであればlatestになる
+# * それ以外のブランチであれば、ブランチ名になる
+# * また、それぞれのイメージについて、ビルド時のエポックタイムをタグにつける
 
 name: Docker Image CI
 
@@ -79,6 +82,16 @@ jobs:
                 tag_suffix: arm64
         runs-on: ${{ matrix.runner }}
         steps:
+        - name: ブランチ名を取得して環境変数にセット
+          run: echo "BRANCH_NAME=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_ENV
+        - name: もしBRANCH_NAMEがmainならlatestに変更
+          run: |
+            if [ $BRANCH_NAME = "main" ]; then
+              echo "BRANCH_NAME=latest" >> $GITHUB_ENV
+            fi
+            echo "EPOCH_TIME=$(date +%s)" >> $GITHUB_ENV
+        - name: 変数BRANCH_NAMEの値を出力
+          run: echo $BRANCH_NAME
         - name: チェックアウト
           uses: actions/checkout@v4
         - name: "buildx: QEMUのセットアップ"
