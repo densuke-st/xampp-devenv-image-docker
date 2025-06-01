@@ -80,6 +80,7 @@ jobs:
               - platform: linux/arm64
                 runner: ${{ needs.check-act.outputs.IS_ACT == 'true' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
                 tag_suffix: arm64
+
         runs-on: ${{ matrix.runner }}
         steps:
         - name: ブランチ名を取得して環境変数にセット
@@ -162,6 +163,7 @@ jobs:
         - build
         - create-manifest
         - make-imagename
+        - check-act
       if: needs.check-act.outputs.IS_ACT == 'true'
       steps:
         - name: act環境のイメージ削除
@@ -177,6 +179,7 @@ jobs:
       needs:
         - create-manifest
         - make-imagename
+        - check-act
       if: needs.check-act.outputs.IS_ACT != 'true'
       steps:
         - name: リポジトリのクローン
