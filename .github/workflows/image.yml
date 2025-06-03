@@ -54,7 +54,7 @@ jobs:
         - name: 処理結果の出力
           run: |
             echo "running on $(uname -a)"
-            echo "IS_ACT=${{ steps.set-runner.outputs.IS_ACT }}"
+            echo "IS_ACT=${{ steps.check-act.outputs.IS_ACT }}"
             echo "RUNNER=${{ steps.set-runner.outputs.RUNNER }}"
             if [ "${{ steps.check-act.outputs.IS_ACT }}" = "true" ]; then
               echo "act環境で実行中です。"
