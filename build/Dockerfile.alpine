@@ -39,6 +39,8 @@ EOT
 
 # configure〜ビルド
 RUN <<EOT
+    # この部分は、公式のPythonのビルド手順をコピーしています
+    # https://raw.githubusercontent.com/docker-library/python/7a46d5a133e8954b1291a04b1832dab334b2414c/3.13/alpine3.22/Dockerfile
     cd /usr/src/python
     gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"
     ./configure \
@@ -67,6 +69,8 @@ RUN <<EOT
     make -j"${JOBS}" \
         "EXTRA_CFLAGS=${EXTRA_CFLAGS:-}" \
         "LDFLAGS=${LDFLAGS:-}"
+    # https://github.com/docker-library/python/issues/784
+    # prevent accidental usage of a system installed libpython of the same version
     rm python
     make -j "${JOBS}" \
         "EXTRA_CFLAGS=${EXTRA_CFLAGS:-}" \
