@@ -78,6 +78,8 @@ EOT
 COPY --from=uv-source /usr/local/bin/uv /usr/local/bin/uvx /usr/local/bin/
 
 USER ${USER_NAME}
+ENV TZ=Asia/Tokyo
+ENV LC_ALL=ja_JP.UTF-8
 ENV HOME=/home/${USER_NAME}
 ENV PATH=$HOME/.local/bin:$PATH
 WORKDIR  ${HOME}

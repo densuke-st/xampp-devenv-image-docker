@@ -1,0 +1,10 @@
+#!/bin/sh
+
+DIR=/app
+
+if [ ! -d "$DIR" ]; then
+    DIR=/var/www/html
+fi
+
+
+exec php -S "0.0.0.0:80" -t "${DIR}"

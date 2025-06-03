@@ -8,7 +8,8 @@ on:
         branches-ignore:
           - main
     pull_request:
-        types: [opened, synchronize, reopened]
+        types: 
+          - opened
         branches:
           - main
     workflow_dispatch: # 手動実行
@@ -39,7 +40,7 @@ jobs:
             [ -n "$GITHUB_EVENT_NAME" ] && [ "$GITHUB_EVENT_NAME" = "pull_request" ] && R=true
             echo "IS_ACT=$R" >> $GITHUB_OUTPUT
 
-    build:
+    build-ubuntu:
         needs:
           - check-act
         strategy:
@@ -74,3 +75,38 @@ jobs:
           if: needs.check-act.outputs.IS_ACT == 'true'
           run: |
             docker rmi ghcr.io/${{ github.repository_owner }}/xampp-devenv:testing-${{ matrix.tag_suffix }} || true
+    build-alpine:
+        needs:
+          - check-act
+        strategy:
+          fail-fast: true
+          matrix:
+            include:
+              - platform: linux/amd64
+                runner: ubuntu-24.04
+                tag_suffix: amd64
+              - platform: linux/arm64
+                runner: ${{ needs.check-act.outputs.IS_ACT == 'true' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
+                tag_suffix: arm64
+        runs-on: ${{ matrix.runner }}
+        steps:
+        - name: チェックアウト
+          uses: actions/checkout@v4
+        - name: "buildx: QEMUのセットアップ"
+          uses: docker/setup-qemu-action@v3
+        - name: "docker buildの準備"
+          uses: docker/setup-buildx-action@v3
+        - name: "イメージのビルド"
+          uses: docker/build-push-action@v5
+          with:
+            context: ./build
+            file: ./build/Dockerfile.alpine
+            platforms: ${{ matrix.platform }}
+            # あくまでビルドのテスト用です、よってイメージのプッシュは行いません
+            push: false
+            load: true
+            tags: ghcr.io/${{ github.repository_owner }}/xampp-devenv:testing-alpine-${{ matrix.tag_suffix }}
+        - name: "(act上)イメージの削除"
+          if: needs.check-act.outputs.IS_ACT == 'true'
+          run: |
+            docker rmi ghcr.io/${{ github.repository_owner }}/xampp-devenv:testing-alpine-${{ matrix.tag_suffix }} || true
