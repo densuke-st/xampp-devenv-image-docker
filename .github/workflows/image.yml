@@ -111,7 +111,7 @@ jobs:
           run: echo "BRANCH_NAME=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_ENV
         - name: もしBRANCH_NAMEがmainならlatestに変更
           run: |
-            if [ $BRANCH_NAME = "main" ]; then
+            if [ "$BRANCH_NAME" = "main" ]; then
               echo "BRANCH_NAME=latest" >> $GITHUB_ENV
             fi
             echo "EPOCH_TIME=$(date +%s)" >> $GITHUB_ENV
