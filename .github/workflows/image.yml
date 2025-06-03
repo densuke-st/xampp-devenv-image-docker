@@ -29,6 +29,7 @@ jobs:
       runs-on: ubuntu-latest
       outputs:
         IS_ACT: ${{ steps.check-act.outputs.IS_ACT }}
+        RUNNER: ${{ steps.set-runner.outputs.RUNNER }}
       steps:
         - name: actのチェック
           id: check-act
@@ -37,6 +38,29 @@ jobs:
             [ -n "$ACT" ] && R=true
             [ -n "$GITHUB_EVENT_NAME" ] && [ "$GITHUB_EVENT_NAME" = "pull_request" ] && R=true
             echo "IS_ACT=$R" >> $GITHUB_OUTPUT
+        # act使用中は結局ホスト側のCPUエミュレータを使うことになり、イメージが全部共通になってしまう
+        - name: Runnerを切り替える
+          id: set-runner
+          run: |
+            if [ "${{ steps.check-act.outputs.IS_ACT }}" = "true" ]; then
+              # ACT環境では、ホストのものをそのまま使えばよい
+              echo "Runner is set to ubuntu-24.04"
+              echo "RUNNER=ubuntu-24.04" >> $GITHUB_OUTPUT
+            else
+              # GitHub Actionsではarm64のイメージを使う"
+              echo "Runner is set to ubuntu-24.04-arm"
+              echo "RUNNER=ubuntu-24.04-arm" >> $GITHUB_OUTPUT
+            fi
+        - name: 処理結果の出力
+          run: |
+            echo "running on $(uname -a)"
+            echo "IS_ACT=${{ steps.set-runner.outputs.IS_ACT }}"
+            echo "RUNNER=${{ steps.set-runner.outputs.RUNNER }}"
+            if [ "${{ steps.check-act.outputs.IS_ACT }}" = "true" ]; then
+              echo "act環境で実行中です。"
+            else
+              echo "GitHub Actions環境で実行中です。"
+            fi
 
    # シリアル値を生成するジョブ
     make-serial:
@@ -78,7 +102,7 @@ jobs:
                 runner: ubuntu-24.04
                 tag_suffix: amd64
               - platform: linux/arm64
-                runner: ${{ needs.check-act.outputs.IS_ACT == 'true' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
+                runner: ${{ needs.check-act.outputs.RUNNER }}
                 tag_suffix: arm64
 
         runs-on: ${{ matrix.runner }}
@@ -112,8 +136,8 @@ jobs:
             context: .
             file: ./build/Dockerfile
             platforms: ${{ matrix.platform }}
-            push: true
-            load: false
+            push: ${{ needs.check-act.outputs.IS_ACT != 'true' }}
+            load: true
             provenance: false
             tags: ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_suffix }}
         - name: "(act上)イメージの削除"
