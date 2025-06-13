@@ -8,8 +8,8 @@ name: Docker Image CI
 
 on:
     push:
-        branches:
-          - main
+        # branches:
+        #   - main
     workflow_dispatch: # 手動実行
 
 # GHCRへのプッシュにはパーミッションが必要です
@@ -101,10 +101,23 @@ jobs:
               - platform: linux/amd64
                 runner: ubuntu-24.04
                 tag_suffix: amd64
+                dockerfile: build/Dockerfile
+                tag_dist: ""
+              - platform: linux/amd64
+                runner: ubuntu-24.04
+                tag_suffix: amd64
+                dockerfile: Dockerfile.alpine
+                tag_dist: -alpine
               - platform: linux/arm64
-                runner: ${{ needs.check-act.outputs.RUNNER }}
+                runner: ubuntu-24.04-arm
                 tag_suffix: arm64
-
+                dockerfile: build/Dockerfile
+                tag_dist: ""
+              - platform: linux/arm64
+                runner: ubuntu-24.04-arm
+                tag_suffix: arm64
+                dockerfile: Dockerfile.alpine
+                tag_dist: -alpine
         runs-on: ${{ matrix.runner }}
         steps:
         - name: ブランチ名を取得して環境変数にセット
@@ -139,7 +152,7 @@ jobs:
             push: ${{ needs.check-act.outputs.IS_ACT != 'true' }}
             load: true
             provenance: false
-            tags: ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_suffix }}
+            tags: ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_suffix }}-${{ matrix.tag_dist }},${{ needs.make-imagename.outputs.image_name_latest }}-${{ matrix.tag_suffix }}${{ matrix.tag_dist }}
         - name: "(act上)イメージの削除"
           if: needs.check-act.outputs.IS_ACT == 'true'
           run: |
@@ -149,6 +162,12 @@ jobs:
     create-manifest:
       runs-on: ubuntu-24.04
       timeout-minutes: 1
+      strategy:
+        fail-fast: true
+        matrix:
+          dist:
+            - ""
+            - "-alpine"
       needs:
         - build
         - check-act
@@ -163,23 +182,22 @@ jobs:
             username: ${{ github.actor }}
             password: ${{ secrets.GITHUB_TOKEN }}
 
-        - name: マニフェストの作成(latest)
+        - name: マニフェストの作成(latest) -> プッシュ
+          # このステップ自体をmainブランチのときはスキップする
+          if: github.ref == 'refs/heads/main'
+          run: |
+            docker manifest create ${{ needs.make-imagename.outputs.image_name_latest }}${{ matrix.tag_dist }} \
+              ${{ needs.make-imagename.outputs.image_name_tag }}-amd64${{ matrix.tag_dist }} \
+              ${{ needs.make-imagename.outputs.image_name_tag }}-arm64${{ matrix.tag_dist }}
+            docker manifest push ${{ needs.make-imagename.outputs.image_name_latest }}${{ matrix.tag_dist }}
+        - name: マニフェストの作成(シリアル値) → プッシュ
           run: |
             set -x
-            docker manifest create ${{ needs.make-imagename.outputs.image_name_latest }} \
-              ${{ needs.make-imagename.outputs.image_name_tag }}-amd64 \
-              ${{ needs.make-imagename.outputs.image_name_tag }}-arm64
-        - name: マニフェストの作成(シリアル値)
-          run: |
-            set -x
-            docker manifest create ${{ needs.make-imagename.outputs.image_name_tag }} \
-              ${{ needs.make-imagename.outputs.image_name_tag }}-amd64 \
-              ${{ needs.make-imagename.outputs.image_name_tag }}-arm64
-        - name: マニフェストのプッシュ
-          run: |
-            docker manifest push ${{ needs.make-imagename.outputs.image_name_latest }}
-            docker manifest push ${{ needs.make-imagename.outputs.image_name_tag }}
-
+            docker manifest create ${{ needs.make-imagename.outputs.image_name_tag }}${{ matrix.tag_dist }} \
+              ${{ needs.make-imagename.outputs.image_name_tag }}-amd64${{ matrix.tag_dist }} \
+              ${{ needs.make-imagename.outputs.image_name_tag }}-arm64${{ matrix.tag_dist }}
+              docker manifest push ${{ needs.make-imagename.outputs.image_name_tag }}${{ matrix.tag_dist }}
+  
     # act環境の際、残ってるイメージデータなどを削除しておく
     cleanup:
       runs-on: ubuntu-24.04
@@ -189,13 +207,19 @@ jobs:
         - make-imagename
         - check-act
       if: needs.check-act.outputs.IS_ACT == 'true'
+      strategy:
+        fail-fast: true
+        matrix:
+          dist:
+            - ""
+            - "-alpine"
       steps:
         - name: act環境のイメージ削除
           run: |
-            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-amd64 || true
-            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-arm64 || true
-            docker rmi ${{ needs.make-imagename.outputs.image_name_latest }} || true
-            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }} || true
+            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-amd64${{ matrix.dist }} || true
+            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-arm64${{ matrix.dist }} || true
+            docker rmi ${{ needs.make-imagename.outputs.image_name_latest }}${{ matrix.dist }} || true
+            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}${{ matrix.dist }} || true
             docker image prune -f
 
     update-template-repo:
