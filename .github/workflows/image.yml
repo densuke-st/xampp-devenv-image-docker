@@ -167,6 +167,7 @@ jobs:
     
     # マニフェストを作成して両アーキテクチャを統合利用(actでは実行しない)
     create-manifest:
+      id: create-manifest
       runs-on: ubuntu-24.04
       timeout-minutes: 1
       strategy:
@@ -203,6 +204,7 @@ jobs:
               ${{ needs.make-imagename.outputs.image_name_tag }}-amd64-${{ matrix.tag_dist }} \
               ${{ needs.make-imagename.outputs.image_name_tag }}-arm64-${{ matrix.tag_dist }}
               docker manifest push ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }}
+
     create-latest:
       # mainブランチのときのみ、latestタグを作成する、latestタグはubuntu側を指すようにしておく
       runs-on: ubuntu-24.04
@@ -210,6 +212,7 @@ jobs:
         - build
         - check-act
         - make-imagename
+        - create-manifest
       if: needs.check-act.outputs.IS_ACT != 'true' && github.ref == 'refs/heads/main'
       steps:
         - name: GHCRにログイン
