@@ -100,22 +100,22 @@ jobs:
             include:
               - platform: linux/amd64
                 runner: ubuntu-24.04
-                tag_suffix: amd64
+                tag_arch: amd64
                 dockerfile: Dockerfile
                 tag_dist: "ubuntu"
               - platform: linux/amd64
                 runner: ubuntu-24.04
-                tag_suffix: amd64
+                tag_arch: amd64
                 dockerfile: Dockerfile.alpine
                 tag_dist: "alpine"
               - platform: linux/arm64
                 runner: ${{ needs.check-act.outputs.IS_ACT == 'true' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
-                tag_suffix: arm64
+                tag_arch: arm64
                 dockerfile: Dockerfile
                 tag_dist: "ubuntu"
               - platform: linux/arm64
                 runner: ${{ needs.check-act.outputs.IS_ACT == 'true' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
-                tag_suffix: arm64
+                tag_arch: arm64
                 dockerfile: Dockerfile.alpine
                 tag_dist: "alpine"
         runs-on: ${{ matrix.runner }}
@@ -133,7 +133,7 @@ jobs:
             # 各マトリックスの値も出力
             echo "matrix.platform=${{ matrix.platform }}"
             echo "matrix.runner=${{ matrix.runner }}"
-            echo "matrix.tag_suffix=${{ matrix.tag_suffix }}"
+            echo "matrix.tag_arch=${{ matrix.tag_arch }}"
             echo "matrix.dockerfile=${{ matrix.dockerfile }}"
         - name: 変数BRANCH_NAMEの値を出力
           run: echo $BRANCH_NAME
@@ -159,11 +159,11 @@ jobs:
             push: ${{ needs.check-act.outputs.IS_ACT != 'true' }}
             load: true
             provenance: false
-            tags: ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_suffix }}-${{ matrix.tag_dist }},${{ needs.make-imagename.outputs.image_name_latest }}-${{ matrix.tag_dist }}-${{ matrix.tag_suffix }}
+            tags: ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }}-${{ matrix.tag_arch }},${{ needs.make-imagename.outputs.image_name_latest }}-${{ matrix.tag_dist }}-${{ matrix.tag_arch }}
         - name: "(act上)イメージの削除"
           if: needs.check-act.outputs.IS_ACT == 'true'
           run: |
-            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }}-${{ matrix.tag_suffix }} || true
+            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }}-${{ matrix.tag_arch }} || true
     
     # マニフェストを作成して両アーキテクチャを統合利用(actでは実行しない)
     create-manifest:
