@@ -129,6 +129,7 @@ jobs:
             fi
             echo "EPOCH_TIME=$(date +%s)" >> $GITHUB_ENV
         - name: "デバッグ用: 環境変数の出力"
+          if: ${{ github.event_name == 'workflow_dispatch' || github.ref != 'refs/heads/main' }}
           run: |
             # 各マトリックスの値も出力
             echo "matrix.platform=${{ matrix.platform }}"
