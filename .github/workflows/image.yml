@@ -167,7 +167,6 @@ jobs:
     
     # マニフェストを作成して両アーキテクチャを統合利用(actでは実行しない)
     create-manifest:
-      id: create-manifest
       runs-on: ubuntu-24.04
       timeout-minutes: 1
       strategy:
