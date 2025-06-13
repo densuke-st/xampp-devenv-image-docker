@@ -8,8 +8,6 @@ name: Docker Image CI
 
 on:
     push:
-        # branches:
-        #   - main
     workflow_dispatch: # 手動実行
 
 # GHCRへのプッシュにはパーミッションが必要です
@@ -241,15 +239,15 @@ jobs:
         fail-fast: true
         matrix:
           dist:
-            - ""
-            - "-alpine"
+            - "ubuntu"
+            - "alpine"
       steps:
         - name: act環境のイメージ削除
           run: |
-            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-amd64${{ matrix.dist }} || true
-            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-arm64${{ matrix.dist }} || true
-            docker rmi ${{ needs.make-imagename.outputs.image_name_latest }}${{ matrix.dist }} || true
-            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}${{ matrix.dist }} || true
+            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.dist }}-amd64 || true
+            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.dist }}-arm64 || true
+            docker rmi ${{ needs.make-imagename.outputs.image_name_latest }}-${{ matrix.dist }} || true
+            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.dist }} || true
             docker image prune -f
 
     update-template-repo:
