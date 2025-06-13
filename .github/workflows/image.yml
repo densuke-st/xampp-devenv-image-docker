@@ -101,7 +101,7 @@ jobs:
               - platform: linux/amd64
                 runner: ubuntu-24.04
                 tag_suffix: amd64
-                dockerfile: build/Dockerfile
+                dockerfile: Dockerfile
                 tag_dist: "ubuntu"
               - platform: linux/amd64
                 runner: ubuntu-24.04
@@ -111,7 +111,7 @@ jobs:
               - platform: linux/arm64
                 runner: ${{ needs.check-act.outputs.IS_ACT == 'true' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
                 tag_suffix: arm64
-                dockerfile: build/Dockerfile
+                dockerfile: Dockerfile
                 tag_dist: "ubuntu"
               - platform: linux/arm64
                 runner: ${{ needs.check-act.outputs.IS_ACT == 'true' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
