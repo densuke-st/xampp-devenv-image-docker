@@ -102,22 +102,22 @@ jobs:
                 runner: ubuntu-24.04
                 tag_suffix: amd64
                 dockerfile: build/Dockerfile
-                tag_dist: ""
+                tag_dist: "ubuntu"
               - platform: linux/amd64
                 runner: ubuntu-24.04
                 tag_suffix: amd64
                 dockerfile: Dockerfile.alpine
-                tag_dist: -alpine
+                tag_dist: "alpine"
               - platform: linux/arm64
-                runner: ubuntu-24.04-arm
+                runner: ${{ needs.check-act.outputs.IS_ACT == 'true' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
                 tag_suffix: arm64
                 dockerfile: build/Dockerfile
-                tag_dist: ""
+                tag_dist: "ubuntu"
               - platform: linux/arm64
-                runner: ubuntu-24.04-arm
+                runner: ${{ needs.check-act.outputs.IS_ACT == 'true' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
                 tag_suffix: arm64
                 dockerfile: Dockerfile.alpine
-                tag_dist: -alpine
+                tag_dist: "alpine"
         runs-on: ${{ matrix.runner }}
         steps:
         - name: ブランチ名を取得して環境変数にセット
@@ -128,6 +128,13 @@ jobs:
               echo "BRANCH_NAME=latest" >> $GITHUB_ENV
             fi
             echo "EPOCH_TIME=$(date +%s)" >> $GITHUB_ENV
+        - name: "デバッグ用: 環境変数の出力"
+          run: |
+            # 各マトリックスの値も出力
+            echo "matrix.platform=${{ matrix.platform }}"
+            echo "matrix.runner=${{ matrix.runner }}"
+            echo "matrix.tag_suffix=${{ matrix.tag_suffix }}"
+            echo "matrix.dockerfile=${{ matrix.dockerfile }}"
         - name: 変数BRANCH_NAMEの値を出力
           run: echo $BRANCH_NAME
         - name: チェックアウト
@@ -147,16 +154,16 @@ jobs:
           uses: docker/build-push-action@v5
           with:
             context: .
-            file: ./build/Dockerfile
+            file: ./build/${{ matrix.dockerfile }}
             platforms: ${{ matrix.platform }}
             push: ${{ needs.check-act.outputs.IS_ACT != 'true' }}
             load: true
             provenance: false
-            tags: ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_suffix }}-${{ matrix.tag_dist }},${{ needs.make-imagename.outputs.image_name_latest }}-${{ matrix.tag_suffix }}${{ matrix.tag_dist }}
+            tags: ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_suffix }}-${{ matrix.tag_dist }},${{ needs.make-imagename.outputs.image_name_latest }}-${{ matrix.tag_dist }}-${{ matrix.tag_suffix }}
         - name: "(act上)イメージの削除"
           if: needs.check-act.outputs.IS_ACT == 'true'
           run: |
-            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_suffix }} || true
+            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }}-${{ matrix.tag_suffix }} || true
     
     # マニフェストを作成して両アーキテクチャを統合利用(actでは実行しない)
     create-manifest:
@@ -165,9 +172,9 @@ jobs:
       strategy:
         fail-fast: true
         matrix:
-          dist:
-            - ""
-            - "-alpine"
+          tag_dist:
+            - "ubuntu"
+            - "alpine"
       needs:
         - build
         - check-act
@@ -184,20 +191,40 @@ jobs:
 
         - name: マニフェストの作成(latest) -> プッシュ
           # このステップ自体をmainブランチのときはスキップする
-          if: github.ref == 'refs/heads/main'
           run: |
-            docker manifest create ${{ needs.make-imagename.outputs.image_name_latest }}${{ matrix.tag_dist }} \
-              ${{ needs.make-imagename.outputs.image_name_tag }}-amd64${{ matrix.tag_dist }} \
-              ${{ needs.make-imagename.outputs.image_name_tag }}-arm64${{ matrix.tag_dist }}
-            docker manifest push ${{ needs.make-imagename.outputs.image_name_latest }}${{ matrix.tag_dist }}
+            docker manifest create ${{ needs.make-imagename.outputs.image_name_latest }}-${{ matrix.tag_dist }} \
+              ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }}-amd64 \
+              ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }}-arm64
+            docker manifest push ${{ needs.make-imagename.outputs.image_name_latest }}-${{ matrix.tag_dist }}
         - name: マニフェストの作成(シリアル値) → プッシュ
           run: |
             set -x
-            docker manifest create ${{ needs.make-imagename.outputs.image_name_tag }}${{ matrix.tag_dist }} \
-              ${{ needs.make-imagename.outputs.image_name_tag }}-amd64${{ matrix.tag_dist }} \
-              ${{ needs.make-imagename.outputs.image_name_tag }}-arm64${{ matrix.tag_dist }}
-              docker manifest push ${{ needs.make-imagename.outputs.image_name_tag }}${{ matrix.tag_dist }}
-  
+            docker manifest create ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }} \
+              ${{ needs.make-imagename.outputs.image_name_tag }}-amd64-${{ matrix.tag_dist }} \
+              ${{ needs.make-imagename.outputs.image_name_tag }}-arm64-${{ matrix.tag_dist }}
+              docker manifest push ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }}
+    create-latest:
+      # mainブランチのときのみ、latestタグを作成する、latestタグはubuntu側を指すようにしておく
+      runs-on: ubuntu-24.04
+      needs:
+        - build
+        - check-act
+        - make-imagename
+      if: needs.check-act.outputs.IS_ACT != 'true' && github.ref == 'refs/heads/main'
+      steps:
+        - name: GHCRにログイン
+          uses: docker/login-action@v3
+          with:
+            registry: ghcr.io
+            username: ${{ github.actor }}
+            password: ${{ secrets.GITHUB_TOKEN }}
+
+        - name: latestタグの作成
+          run: |
+            docker tag ${{ needs.make-imagename.outputs.image_name_latest }}-ubuntu \
+              ${{ needs.make-imagename.outputs.image_name_latest }}
+            docker push ${{ needs.make-imagename.outputs.image_name_latest }}
+
     # act環境の際、残ってるイメージデータなどを削除しておく
     cleanup:
       runs-on: ubuntu-24.04
