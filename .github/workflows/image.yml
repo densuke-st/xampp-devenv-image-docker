@@ -200,8 +200,8 @@ jobs:
           run: |
             set -x
             docker manifest create ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }} \
-              ${{ needs.make-imagename.outputs.image_name_tag }}-amd64-${{ matrix.tag_dist }} \
-              ${{ needs.make-imagename.outputs.image_name_tag }}-arm64-${{ matrix.tag_dist }}
+              ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }}-amd64 \
+              ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }}-arm64
               docker manifest push ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }}
 
     create-latest:
