@@ -238,16 +238,16 @@ jobs:
       strategy:
         fail-fast: true
         matrix:
-          dist:
+          tag_dist:
             - "ubuntu"
             - "alpine"
       steps:
         - name: act環境のイメージ削除
           run: |
-            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.dist }}-amd64 || true
-            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.dist }}-arm64 || true
-            docker rmi ${{ needs.make-imagename.outputs.image_name_latest }}-${{ matrix.dist }} || true
-            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.dist }} || true
+            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }}-amd64 || true
+            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }}-arm64 || true
+            docker rmi ${{ needs.make-imagename.outputs.image_name_latest }}-${{ matrix.tag_dist }} || true
+            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }} || true
             docker image prune -f
 
     update-template-repo:
