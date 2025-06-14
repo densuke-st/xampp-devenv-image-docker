@@ -107,12 +107,12 @@ jobs:
                 dockerfile: Dockerfile.alpine
                 tag_dist: "alpine"
               - platform: linux/arm64
-                runner: ${{ needs.check-act.outputs.IS_ACT == 'true' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
+                runner: ${{ needs.check-act.outputs.RUNNER }}
                 tag_arch: arm64
                 dockerfile: Dockerfile
                 tag_dist: "ubuntu"
               - platform: linux/arm64
-                runner: ${{ needs.check-act.outputs.IS_ACT == 'true' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
+                runner: ${{ needs.check-act.outputs.RUNNER }}
                 tag_arch: arm64
                 dockerfile: Dockerfile.alpine
                 tag_dist: "alpine"
