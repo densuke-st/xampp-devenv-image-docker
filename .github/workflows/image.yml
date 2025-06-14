@@ -8,8 +8,6 @@ name: Docker Image CI
 
 on:
     push:
-        branches:
-          - main
     workflow_dispatch: # 手動実行
 
 # GHCRへのプッシュにはパーミッションが必要です
@@ -100,11 +98,24 @@ jobs:
             include:
               - platform: linux/amd64
                 runner: ubuntu-24.04
-                tag_suffix: amd64
+                tag_arch: amd64
+                dockerfile: Dockerfile
+                tag_dist: "ubuntu"
+              - platform: linux/amd64
+                runner: ubuntu-24.04
+                tag_arch: amd64
+                dockerfile: Dockerfile.alpine
+                tag_dist: "alpine"
               - platform: linux/arm64
                 runner: ${{ needs.check-act.outputs.RUNNER }}
-                tag_suffix: arm64
-
+                tag_arch: arm64
+                dockerfile: Dockerfile
+                tag_dist: "ubuntu"
+              - platform: linux/arm64
+                runner: ${{ needs.check-act.outputs.RUNNER }}
+                tag_arch: arm64
+                dockerfile: Dockerfile.alpine
+                tag_dist: "alpine"
         runs-on: ${{ matrix.runner }}
         steps:
         - name: ブランチ名を取得して環境変数にセット
@@ -115,6 +126,14 @@ jobs:
               echo "BRANCH_NAME=latest" >> $GITHUB_ENV
             fi
             echo "EPOCH_TIME=$(date +%s)" >> $GITHUB_ENV
+        - name: "デバッグ用: 環境変数の出力"
+          if: ${{ github.event_name == 'workflow_dispatch' || github.ref != 'refs/heads/main' }}
+          run: |
+            # 各マトリックスの値も出力
+            echo "matrix.platform=${{ matrix.platform }}"
+            echo "matrix.runner=${{ matrix.runner }}"
+            echo "matrix.tag_arch=${{ matrix.tag_arch }}"
+            echo "matrix.dockerfile=${{ matrix.dockerfile }}"
         - name: 変数BRANCH_NAMEの値を出力
           run: echo $BRANCH_NAME
         - name: チェックアウト
@@ -134,21 +153,27 @@ jobs:
           uses: docker/build-push-action@v5
           with:
             context: .
-            file: ./build/Dockerfile
+            file: ./build/${{ matrix.dockerfile }}
             platforms: ${{ matrix.platform }}
             push: ${{ needs.check-act.outputs.IS_ACT != 'true' }}
             load: true
             provenance: false
-            tags: ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_suffix }}
+            tags: ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }}-${{ matrix.tag_arch }},${{ needs.make-imagename.outputs.image_name_latest }}-${{ matrix.tag_dist }}-${{ matrix.tag_arch }}
         - name: "(act上)イメージの削除"
           if: needs.check-act.outputs.IS_ACT == 'true'
           run: |
-            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_suffix }} || true
+            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }}-${{ matrix.tag_arch }} || true
     
     # マニフェストを作成して両アーキテクチャを統合利用(actでは実行しない)
     create-manifest:
       runs-on: ubuntu-24.04
       timeout-minutes: 1
+      strategy:
+        fail-fast: true
+        matrix:
+          tag_dist:
+            - "ubuntu"
+            - "alpine"
       needs:
         - build
         - check-act
@@ -163,22 +188,76 @@ jobs:
             username: ${{ github.actor }}
             password: ${{ secrets.GITHUB_TOKEN }}
 
-        - name: マニフェストの作成(latest)
+        - name: マニフェストの作成(latest) -> プッシュ
+          # このステップ自体をmainブランチのときはスキップする
+          run: |
+            docker manifest create ${{ needs.make-imagename.outputs.image_name_latest }}-${{ matrix.tag_dist }} \
+              ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }}-amd64 \
+              ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }}-arm64
+            docker manifest push ${{ needs.make-imagename.outputs.image_name_latest }}-${{ matrix.tag_dist }}
+        - name: マニフェストの作成(シリアル値) → プッシュ
           run: |
             set -x
-            docker manifest create ${{ needs.make-imagename.outputs.image_name_latest }} \
-              ${{ needs.make-imagename.outputs.image_name_tag }}-amd64 \
-              ${{ needs.make-imagename.outputs.image_name_tag }}-arm64
-        - name: マニフェストの作成(シリアル値)
+            docker manifest create ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }} \
+              ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }}-amd64 \
+              ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }}-arm64
+              docker manifest push ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }}
+
+
+    # メインのマニフェストを作成(現在はubuntu)
+    create-main:
+      runs-on: ubuntu-24.04
+      timeout-minutes: 1
+      needs:
+        - build
+        - check-act
+        - make-serial
+        - make-imagename
+        - create-manifest
+      steps:
+        - name: GHCRにログイン
+          uses: docker/login-action@v3
+          with:
+            registry: ghcr.io
+            username: ${{ github.actor }}
+            password: ${{ secrets.GITHUB_TOKEN }}
+
+        - name: マニフェストの作成(シリアル値) → プッシュ
           run: |
             set -x
             docker manifest create ${{ needs.make-imagename.outputs.image_name_tag }} \
-              ${{ needs.make-imagename.outputs.image_name_tag }}-amd64 \
-              ${{ needs.make-imagename.outputs.image_name_tag }}-arm64
-        - name: マニフェストのプッシュ
-          run: |
-            docker manifest push ${{ needs.make-imagename.outputs.image_name_latest }}
+              ${{ needs.make-imagename.outputs.image_name_tag }}-ubuntu-amd64 \
+              ${{ needs.make-imagename.outputs.image_name_tag }}-ubuntu-arm64
             docker manifest push ${{ needs.make-imagename.outputs.image_name_tag }}
+
+    create-latest:
+      # mainブランチのときのみ、latestタグを作成する、latestタグはubuntu側を指すようにしておく
+      runs-on: ubuntu-24.04
+      needs:
+        - build
+        - check-act
+        - make-imagename
+        - create-manifest
+      if: needs.check-act.outputs.IS_ACT != 'true'
+      steps:
+        - name: GHCRにログイン
+          uses: docker/login-action@v3
+          with:
+            registry: ghcr.io
+            username: ${{ github.actor }}
+            password: ${{ secrets.GITHUB_TOKEN }}
+
+        - name: latestタグの作成
+          run: |
+            docker manifest create ${{ needs.make-imagename.outputs.image_name_latest }} \
+              ${{ needs.make-imagename.outputs.image_name_tag }}-ubuntu-amd64 \
+              ${{ needs.make-imagename.outputs.image_name_tag }}-ubuntu-arm64
+            docker manifest push ${{ needs.make-imagename.outputs.image_name_latest }}
+
+            # docker image pull ${{ needs.make-imagename.outputs.image_name_latest }}-ubuntu
+            # docker tag ${{ needs.make-imagename.outputs.image_name_latest }}-ubuntu \
+            #   ${{ needs.make-imagename.outputs.image_name_latest }}
+            # docker push ${{ needs.make-imagename.outputs.image_name_latest }}
 
     # act環境の際、残ってるイメージデータなどを削除しておく
     cleanup:
@@ -189,13 +268,19 @@ jobs:
         - make-imagename
         - check-act
       if: needs.check-act.outputs.IS_ACT == 'true'
+      strategy:
+        fail-fast: true
+        matrix:
+          tag_dist:
+            - "ubuntu"
+            - "alpine"
       steps:
         - name: act環境のイメージ削除
           run: |
-            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-amd64 || true
-            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-arm64 || true
-            docker rmi ${{ needs.make-imagename.outputs.image_name_latest }} || true
-            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }} || true
+            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }}-amd64 || true
+            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }}-arm64 || true
+            docker rmi ${{ needs.make-imagename.outputs.image_name_latest }}-${{ matrix.tag_dist }} || true
+            docker rmi ${{ needs.make-imagename.outputs.image_name_tag }}-${{ matrix.tag_dist }} || true
             docker image prune -f
 
     update-template-repo:
