@@ -1,0 +1,87 @@
+# build/Dockerfileを使って、イメージ densukest/xampp-devenv:latest をビルドする
+# ビルド後イメージを densukest/xampp-devenv:latest としてpushする
+
+name: イメージに対するテスト
+
+
+# 起動タイミング:
+# - 各ブランチへのpush
+# - mainブランチへのPull Request
+
+on:
+  push:
+    branches-ignore:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch: # 手動実行
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.sha }}
+  cancel-in-progress: true
+
+# GHCRへのプッシュにはパーミッションが必要です
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+
+    # actで実行しているかのチェック(一部のアクションを動かさないようにするため)
+    check-act:
+      runs-on: ubuntu-latest
+      outputs:
+        IS_ACT: ${{ steps.check-act.outputs.IS_ACT }}
+      steps:
+        - name: actのチェック
+          id: check-act
+          run: |
+            R=false
+            [ -n "$ACT" ] && R=true
+            [ -n "$GITHUB_EVENT_NAME" ] && [ "$GITHUB_EVENT_NAME" = "pull_request" ] && R=true
+            echo "IS_ACT=$R" >> $GITHUB_OUTPUT
+
+    build-ubuntu:
+        needs:
+          - check-act
+        strategy:
+          fail-fast: true
+          matrix:
+            include:
+              - platform: linux/amd64
+                runner: ubuntu-24.04
+                tag_suffix: amd64
+              - platform: linux/arm64
+                runner: ${{ needs.check-act.outputs.IS_ACT == 'true' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
+                tag_suffix: arm64
+        runs-on: ${{ matrix.runner }}
+        steps:
+        - name: チェックアウト
+          uses: actions/checkout@v4
+        - name: "buildx: QEMUのセットアップ"
+          uses: docker/setup-qemu-action@v3
+        - name: "docker buildの準備"
+          uses: docker/setup-buildx-action@v3
+        - name: "イメージのビルド"
+          run: |
+            set -e
+            cd build
+            docker compose up -d
+            sleep 5
+        - name: "イメージのテスト"
+          run: |
+            set -e
+            cd build
+            docker compose exec test-ubuntu sh /test/run.sh ubuntu
+            docker compose exec test-alpine sh /test/run.sh alpine
+        - name: "イメージのクリーンアップ"
+          if: always() && ${{ needs.check-act.outputs.IS_ACT != 'true' }}
+          run: |
+            set -e
+            cd build
+            docker compose down -t 1 -v --remove-orphans || true
+            docker image prune -f || true
+            docker volume prune -f || true
+            
