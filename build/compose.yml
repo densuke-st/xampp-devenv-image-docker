@@ -1,12 +1,16 @@
 services:
   ubuntu:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     volumes:
       - ../test:/test
     command: tail -f /dev/null
 
   alpine:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.alpine
     volumes:
       - ../test:/test
     command: tail -f /dev/null
