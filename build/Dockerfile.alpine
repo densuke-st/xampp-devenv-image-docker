@@ -1,192 +1,188 @@
-# ベースをAlpineにしてどうにかできないかという問題
+ARG PYTHON_VERSION=3.13.3
+ARG PYTHON_PREFIX=/opt/python-${PYTHON_VERSION}
+
 FROM ghcr.io/astral-sh/uv:alpine3.21 AS uv-source
 
 FROM php:8.3-alpine3.21 AS python
 
 # PYTHON_VERSIONとPYTHON_PREFIXは本番イメージ側でも再定義が必要なので注意!
-ENV PYTHON_VERSION 3.13.3
-ARG PYTHON_PREFIX=/opt/python-${PYTHON_VERSION} # インストール先
-
-ARG PYTHON_SRC=https://www.python.org/ftp/python/3.13.3/Python-3.13.3.tar.xz
+ARG PYTHON_VERSION
+ARG PYTHON_PREFIX
+ARG PYTHON_SRC=https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz
 
 # ベースのPythonが更新されたらSHA256は確認して変更すること!
-ENV GPG_KEY 7169605F62C751356D054A26A821E680E5FA6305
-ENV PYTHON_SHA256 40f868bcbdeb8149a3149580bb9bfd407b3321cd48f0be631af955ac92c0e041
+ENV GPG_KEY=7169605F62C751356D054A26A821E680E5FA6305
 
-# ソースの取得〜展開
-RUN <<EOT
-    set -eux
+# Pythonビルド→インストール→必要なものを抽出→クリーンナップ
+RUN <<EOM
+set -eux
 
-    apk add --no-cache --virtual .build-deps \
-        gnupg tar xz bluez-dev bzip2-dev dpkg-dev \
-        dpkg findutils gcc gdbm-dev libc-dev libffi-dev \
-        libnsl-dev libtirpc-dev linux-headers make ncurses-dev \
-        openssl-dev pax-utils readline-dev sqlite-dev tcl-dev \
-        tk tk-dev util-linux-dev xz-dev zlib-dev;
-	
-    wget -O python.tar.xz "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz"
-    echo "$PYTHON_SHA256 *python.tar.xz" | sha256sum -c -
-    wget -O python.tar.xz.asc "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz.asc"
-    GNUPGHOME="$(mktemp -d)"; export GNUPGHOME
-    gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys "$GPG_KEY"
-    gpg --batch --verify python.tar.xz.asc python.tar.xz
-    gpgconf --kill all
-    rm -rf "$GNUPGHOME" python.tar.xz.asc
-    mkdir -p /usr/src/python
-    tar --extract --directory /usr/src/python --strip-components=1 --file python.tar.xz
-    rm python.tar.xz
-EOT
+apk add --no-cache --virtual .build-deps \
+    gnupg tar xz bluez-dev bzip2-dev dpkg-dev \
+    dpkg findutils gcc gdbm-dev libc-dev libffi-dev \
+    libnsl-dev libtirpc-dev linux-headers make ncurses-dev \
+    openssl-dev pax-utils readline-dev sqlite-dev tcl-dev \
+    tk tk-dev util-linux-dev xz-dev zlib-dev
 
-# configure〜ビルド
-RUN <<EOT
-    # この部分は、公式のPythonのビルド手順をコピーしています
-    # https://raw.githubusercontent.com/docker-library/python/7a46d5a133e8954b1291a04b1832dab334b2414c/3.13/alpine3.22/Dockerfile
-    cd /usr/src/python
-    gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"
-    ./configure \
-        --prefix="$PYTHON_PREFIX" \
-        --build="$gnuArch" \
-        --enable-loadable-sqlite-extensions \
-        --enable-option-checking=fatal \
-        --enable-shared \
-        $(test "$gnuArch" != 'riscv64-linux-musl' && echo '--with-lto') \
-        --with-ensurepip
-    nproc="$(nproc)"
-    EXTRA_CFLAGS="-DTHREAD_STACK_SIZE=0x100000"
-    LDFLAGS="${LDFLAGS:--Wl},--strip-all"
-    arch="$(apk --print-arch)"
-    case "$arch" in
-        x86_64|aarch64)
-            EXTRA_CFLAGS="${EXTRA_CFLAGS:-} -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer"
-            ;;
-        x86)
-            ;;
-        *)
-            EXTRA_CFLAGS="${EXTRA_CFLAGS:-} -fno-omit-frame-pointer"
-            ;;
-    esac
-    JOBS="$(($(nproc) *2 + 1))"
-    make -j"${JOBS}" \
-        "EXTRA_CFLAGS=${EXTRA_CFLAGS:-}" \
-        "LDFLAGS=${LDFLAGS:-}"
-    # https://github.com/docker-library/python/issues/784
-    # prevent accidental usage of a system installed libpython of the same version
-    rm python
-    make -j "${JOBS}" \
-        "EXTRA_CFLAGS=${EXTRA_CFLAGS:-}" \
-        "LDFLAGS=${LDFLAGS:--Wl},-rpath='\$\$ORIGIN/../lib'" \
-        python
-EOT
+wget -O python.tar.xz "${PYTHON_SRC}"
+## この部分はしばらくコメントにしますが、今後SHA256チェックは復活させたいです。
+## TODO: PythonソースのSHA256チェックを復活させる #12
+# echo "$PYTHON_SHA256 *python.tar.xz" | sha256sum -c -
+# wget -O python.tar.xz.asc "${PYTHON_SRC}.asc"
+# GNUPGHOME="$(mktemp -d)"
+# export GNUPGHOME
+# gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys "$GPG_KEY"
+# gpg --batch --verify python.tar.xz.asc python.tar.xz
+# gpgconf --kill all
+# rm -rf "$GNUPGHOME" python.tar.xz.asc
 
-# インストール〜後片付け(意味なし部分もある)
-RUN <<EOT
-    cd /usr/src/python
-    make install
+mkdir -p /usr/src/python
+tar --extract --directory /usr/src/python --strip-components=1 --file python.tar.xz
+rm python.tar.xz
+cd /usr/src/python
 
-    cd /
-    rm -rf /usr/src/python
+# Configure
+gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"
+./configure \
+    --prefix="$PYTHON_PREFIX" \
+    --build="$gnuArch" \
+    --enable-loadable-sqlite-extensions \
+    --enable-option-checking=fatal \
+    --enable-shared \
+    $(test "$gnuArch" != 'riscv64-linux-musl' && echo '--with-lto') \
+    --with-ensurepip
 
-    find /usr/local -depth \
-        \( \
-            \( -type d -a \( -name test -o -name tests -o -name idle_test \) \) \
-            -o \( -type f -a \( -name '*.pyc' -o -name '*.pyo' -o -name 'libpython*.a' \) \) \
-        \) -exec rm -rf '{}' +
+nproc="$(nproc)"
+EXTRA_CFLAGS="-DTHREAD_STACK_SIZE=0x100000"
+LDFLAGS="${LDFLAGS:--Wl},--strip-all"
+arch="$(apk --print-arch)"
+case "$arch" in
+    x86_64|aarch64)
+        EXTRA_CFLAGS="${EXTRA_CFLAGS:-} -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer"
+        ;;
+    x86)
+        ;;
+    *)
+        EXTRA_CFLAGS="${EXTRA_CFLAGS:-} -fno-omit-frame-pointer"
+        ;;
+esac
 
-    find /usr/local -type f -executable -not \( -name '*tkinter*' \) -exec scanelf --needed --nobanner --format '%n#p' '{}' ';' \
-        | tr ',' '\n' \
-        | sort -u \
-        | awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }' \
-        | xargs -rt apk add --no-network --virtual .python-rundeps
+# ビルドとインストール
+JOBS="$(($(nproc) *2 + 1))"
+make -j"${JOBS}" "EXTRA_CFLAGS=${EXTRA_CFLAGS:-}" "LDFLAGS=${LDFLAGS:-}"
+rm python
+make -j "${JOBS}" "EXTRA_CFLAGS=${EXTRA_CFLAGS:-}" "LDFLAGS=${LDFLAGS:--Wl},-rpath='\$\$ORIGIN/../lib'" python
+make install
+cd /
+rm -rf /usr/src/python
 
-    apk del --no-network .build-deps
-    export PATH=${PYTHON_PREFIX}/bin:$PATH
-    export PYTHONDONTWRITEBYTECODE=1
-    python3 --version
-    pip3 --version
-EOT
+# 軽量化のため、pycおよびpyoは削除しておく
+find ${PYTHON_PREFIX} -depth \
+    \( \
+        \( -type d -a \( -name test -o -name tests -o -name idle_test \) \) \
+        -o \( -type f -a \( -name '*.pyc' -o -name '*.pyo' -o -name 'libpython*.a' \) \) \
+    \) -exec rm -rf '{}' +
 
-# RUN set -eux; \
-# 	for src in idle3 pip3 pydoc3 python3 python3-config; do \
-# 		dst="$(echo "$src" | tr -d 3)"; \
-# 		[ -s "${PYTHON_PREFIX}/bin/$src" ]; \
-# 		[ ! -e "/usr/local/bin/$dst" ]; \
-# 		ln -svT "$src" "/usr/local/bin/$dst"; \
-# 	done
+# クリーンナップ処理(もしかし不要?)
+apk del --no-network .build-deps
+export PATH=${PYTHON_PREFIX}/bin:$PATH
+export PYTHONDONTWRITEBYTECODE=1
+# Pythonのバージョンを確認のため出力
+python3 --version
+pip3 --version
+EOM
 
-# RUN <<EOT
-#         echo "debug"
-#         ls -l ${PYTHON_PREFIX}
-#         du -h ${PYTHON_PREFIX}
-# EOT
+# pythonビルドステージで依存soからapkパッケージ名リストを生成して保存
+RUN <<EOM
+set -eux
+find "${PYTHON_PREFIX}" -type f -executable -not \( -name '*tkinter*' \) \
+    -exec scanelf --needed --nobanner --format '%n#p' '{}' ';' \
+    | tr ',' '\n' \
+    | sort -u \
+    | awk 'system("[ -e ${PYTHON_PREFIX}/lib/" $1 " ]") == 0 { next } { print $1 }' \
+    > ${PYTHON_PREFIX}/.needed-libs.txt
+# ここでso:libxxx.so.*のリストができる
+EOM
 
 FROM php:8.3-alpine3.21 AS php-exts
-# PHPまわりの設定
+
+
 WORKDIR /usr/local
-RUN <<EOT
-    # ビルド時のスレッド数を「CPU数*2+1」に設定
+RUN <<EOM
+    set -e
     export MAKEFLAGS="-j$(($(nproc) * 2 + 1))"
-    # ビルドに必要なライブラリを追加
-    apk add libzip-dev
-    # ビルド前のタイムスタンプを記録しておく
+    apk add --no-cache libzip-dev
     touch /tmp/now
-    # 必要な拡張をインストール(mysqli, pdo_mysql, zip)
     touch /tmp/basefile
     docker-php-ext-install mysqli pdo_mysql zip
     find /usr/local -newer /tmp/now -type f > /tmp/files
     tar cvzf /tmp/exts.tar.gz $(cat /tmp/files)
-
-EOT
-
+    rm -f /tmp/now /tmp/basefile /tmp/files
+    apk del libzip-dev
+EOM
 
 FROM php:8.3-alpine3.21
-# 今はまだ使わないけど権限周りARG USER_NAME=vscode
 ARG USER_NAME=vscode
 ARG USER_UID=1000
 ARG USER_GID=1000
 
-# 上の定義をコピーして持ち込むこと
-ENV PYTHON_VERSION 3.13.3
-ARG PYTHON_PREFIX=/opt/python-${PYTHON_VERSION} # インストール先
+ARG PYTHON_VERSION
+ARG PYTHON_PREFIX
+
+
 COPY --from=uv-source /usr/local/bin/uv /usr/local/bin/uvx /opt/uv/
 COPY --from=python ${PYTHON_PREFIX} ${PYTHON_PREFIX}
 COPY --from=php-exts /tmp/exts.tar.gz /tmp/
 
 ENV PATH=${PYTHON_PREFIX}/bin:/opt/uv:$PATH
+
 RUN set -eux; \
-	for src in idle3 pip3 pydoc3 python3 python3-config; do \
-		dst="$(echo "$src" | tr -d 3)"; \
-		[ -s "${PYTHON_PREFIX}/bin/$src" ]; \
-		[ ! -e "/usr/local/bin/$dst" ]; \
-		ln -svT "$src" "/usr/local/bin/$dst"; \
-	done
-RUN <<EOM
-    #PHPの拡張をインストール
-    tar xvzf /tmp/exts.tar.gz -C /
-    rm -f /tmp/exts.tar.gz
-    # PHPの設定を開発モードにする
-    cd /usr/local/etc/php && 
-    ln -sf php.ini-development php.ini &&
-    # タイムゾーンを設定
+  for src in idle3 pip3 pydoc3 python3 python3-config; do \
+    dst="$(echo "$src" | tr -d 3)"; \
+    [ -s "${PYTHON_PREFIX}/bin/$src" ]; \
+    [ ! -e "/usr/local/bin/$dst" ]; \
+    ln -svT "$src" "/usr/local/bin/$dst"; \
+  done
+
+RUN tar xvzf /tmp/exts.tar.gz -C / && \
+    rm -f /tmp/exts.tar.gz && \
+    cd /usr/local/etc/php && \
+    ln -sf php.ini-development php.ini && \
     echo "date.timezone = Asia/Tokyo" >> php.ini
-EOM
 
-RUN <<EOM
-    # ロケール周り
-    apk add --no-cache musl-locales tzdata    
-    cp /usr/share/zoneinfo/Asia/Tokyo /etc/localtime 
-    apk del tzdata
+RUN apk add --no-cache tzdata && \
+    cp /usr/share/zoneinfo/Asia/Tokyo /etc/localtime && \
+    apk del tzdata && \
     echo "Asia/Tokyo" > /etc/timezone
-EOM
 
-RUN <<EOM
-    # ユーザー周り
-    addgroup -g ${USER_GID} ${USER_NAME}
+RUN addgroup -g ${USER_GID} ${USER_NAME} && \
     adduser -D -u ${USER_UID} -G ${USER_NAME} ${USER_NAME}
-EOM
+
+RUN apk add --no-cache git xz
 
 RUN <<EOM
-    # ツール類
-    apk add --no-cache git xz # gh-cli
+set -eux
+
+so_list=$(cat ${PYTHON_PREFIX}/.needed-libs.txt)
+pkgs=""
+for so in $so_list; do
+  case "$so" in
+    libbz2.so.1) pkgs="$pkgs bzip2";;
+    libffi.so.8) pkgs="$pkgs libffi";;
+    libgdbm.so.6|libgdbm_compat.so.4) pkgs="$pkgs gdbm";;
+    liblzma.so.5) pkgs="$pkgs xz-libs";;
+    libncursesw.so.6|libpanelw.so.6) pkgs="$pkgs ncurses-libs";;
+    libreadline.so.8) pkgs="$pkgs readline";;
+    libsqlite3.so.0) pkgs="$pkgs sqlite-libs";;
+    libssl.so.3|libcrypto.so.3) pkgs="$pkgs openssl";;
+    libuuid.so.1) pkgs="$pkgs libuuid";;
+    libz.so.1) pkgs="$pkgs zlib";;
+    libc.musl-*.so.1) ;; # musl libcは無視
+    *) echo "Unmapped so: $so" ;;
+  esac
+done
+apk add --no-cache $pkgs
+
 EOM
 
 ENV LC_ALL=ja_JP.UTF-8
@@ -195,7 +191,6 @@ ENV LANG=ja_JP.UTF-8
 USER ${USER_NAME}
 ENV HOME=/home/${USER_NAME}
 ENV PATH=$HOME/.local/bin:$PATH
-WORKDIR /var/www/html
-WORKDIR  ${HOME}
+WORKDIR ${HOME}
 
 CMD ["php", "-S", "0.0.0.0:80", "-t", "/var/www/html"]
