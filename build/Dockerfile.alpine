@@ -1,112 +1,134 @@
-# ベースをAlpineにしてどうにかできないかという問題
-FROM ghcr.io/astral-sh/uv:alpine3.21 AS uv-source
+ARG PYTHON_VERSION=3.13.3
+ARG PYTHON_PREFIX=/opt/python-${PYTHON_VERSION}
 
+FROM ghcr.io/astral-sh/uv:alpine3.21 AS uv-source
 
 FROM php:8.3-alpine3.21 AS python
 
-ARG PYTHON_VERSION=3.13.3
-
 # PYTHON_VERSIONとPYTHON_PREFIXは本番イメージ側でも再定義が必要なので注意!
-ENV PYTHON_VERSION=${PYTHON_VERSION}
-ARG PYTHON_PREFIX=/opt/python-${PYTHON_VERSION}
+ARG PYTHON_VERSION
+ARG PYTHON_PREFIX
 ARG PYTHON_SRC=https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz
 
 # ベースのPythonが更新されたらSHA256は確認して変更すること!
 ENV GPG_KEY=7169605F62C751356D054A26A821E680E5FA6305
-ENV PYTHON_SHA256=40f868bcbdeb8149a3149580bb9bfd407b3321cd48f0be631af955ac92c0e041
 
-# Pythonビルド・インストール・クリーンアップを1RUNに統合
-RUN set -eux; \
-  apk add --no-cache --virtual .build-deps \
+# Pythonビルド→インストール→必要なものを抽出→クリーンナップ
+RUN <<EOM
+set -eux
+
+apk add --no-cache --virtual .build-deps \
     gnupg tar xz bluez-dev bzip2-dev dpkg-dev \
     dpkg findutils gcc gdbm-dev libc-dev libffi-dev \
     libnsl-dev libtirpc-dev linux-headers make ncurses-dev \
     openssl-dev pax-utils readline-dev sqlite-dev tcl-dev \
-    tk tk-dev util-linux-dev xz-dev zlib-dev; \
-  wget -O python.tar.xz \
-    "https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz"; \
-  echo "$PYTHON_SHA256 *python.tar.xz" | sha256sum -c -; \
-  wget -O python.tar.xz.asc \
-    "https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz.asc"; \
-  GNUPGHOME="$(mktemp -d)"; \
-  export GNUPGHOME; \
-  gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys "$GPG_KEY"; \
-  gpg --batch --verify python.tar.xz.asc python.tar.xz; \
-  gpgconf --kill all; \
-  rm -rf "$GNUPGHOME" python.tar.xz.asc; \
-  mkdir -p /usr/src/python; \
-  tar --extract --directory /usr/src/python --strip-components=1 --file python.tar.xz; \
-  rm python.tar.xz; \
-  cd /usr/src/python; \
-  gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"; \
-  ./configure \
+    tk tk-dev util-linux-dev xz-dev zlib-dev
+
+wget -O python.tar.xz "${PYTHON_SRC}"
+## この部分はしばらくコメントにしますが、今後SHA256チェックは復活させたいです。
+## TODO: PythonソースのSHA256チェックを復活させる #12
+# echo "$PYTHON_SHA256 *python.tar.xz" | sha256sum -c -
+# wget -O python.tar.xz.asc "${PYTHON_SRC}.asc"
+# GNUPGHOME="$(mktemp -d)"
+# export GNUPGHOME
+# gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys "$GPG_KEY"
+# gpg --batch --verify python.tar.xz.asc python.tar.xz
+# gpgconf --kill all
+# rm -rf "$GNUPGHOME" python.tar.xz.asc
+
+mkdir -p /usr/src/python
+tar --extract --directory /usr/src/python --strip-components=1 --file python.tar.xz
+rm python.tar.xz
+cd /usr/src/python
+
+# Configure
+gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"
+./configure \
     --prefix="$PYTHON_PREFIX" \
     --build="$gnuArch" \
     --enable-loadable-sqlite-extensions \
     --enable-option-checking=fatal \
     --enable-shared \
     $(test "$gnuArch" != 'riscv64-linux-musl' && echo '--with-lto') \
-    --with-ensurepip; \
-  nproc="$(nproc)"; \
-  EXTRA_CFLAGS="-DTHREAD_STACK_SIZE=0x100000"; \
-  LDFLAGS="${LDFLAGS:--Wl},--strip-all"; \
-  arch="$(apk --print-arch)"; \
-  case "$arch" in \
-    x86_64|aarch64) \
-      EXTRA_CFLAGS="${EXTRA_CFLAGS:-} -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer"; \
-      ;; \
-    x86) \
-      ;; \
-    *) \
-      EXTRA_CFLAGS="${EXTRA_CFLAGS:-} -fno-omit-frame-pointer"; \
-      ;; \
-  esac; \
-  JOBS="$(($(nproc) *2 + 1))"; \
-  make -j"${JOBS}" \
-    "EXTRA_CFLAGS=${EXTRA_CFLAGS:-}" \
-    "LDFLAGS=${LDFLAGS:-}"; \
-  rm python; \
-  make -j "${JOBS}" \
-    "EXTRA_CFLAGS=${EXTRA_CFLAGS:-}" \
-    "LDFLAGS=${LDFLAGS:--Wl},-rpath='\$\$ORIGIN/../lib'" \
-    python; \
-  make install; \
-  cd /; \
-  rm -rf /usr/src/python; \
-  find ${PYTHON_PREFIX} -depth \
+    --with-ensurepip
+
+nproc="$(nproc)"
+EXTRA_CFLAGS="-DTHREAD_STACK_SIZE=0x100000"
+LDFLAGS="${LDFLAGS:--Wl},--strip-all"
+arch="$(apk --print-arch)"
+case "$arch" in
+    x86_64|aarch64)
+        EXTRA_CFLAGS="${EXTRA_CFLAGS:-} -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer"
+        ;;
+    x86)
+        ;;
+    *)
+        EXTRA_CFLAGS="${EXTRA_CFLAGS:-} -fno-omit-frame-pointer"
+        ;;
+esac
+
+# ビルドとインストール
+JOBS="$(($(nproc) *2 + 1))"
+make -j"${JOBS}" "EXTRA_CFLAGS=${EXTRA_CFLAGS:-}" "LDFLAGS=${LDFLAGS:-}"
+rm python
+make -j "${JOBS}" "EXTRA_CFLAGS=${EXTRA_CFLAGS:-}" "LDFLAGS=${LDFLAGS:--Wl},-rpath='\$\$ORIGIN/../lib'" python
+make install
+cd /
+rm -rf /usr/src/python
+
+# 軽量化のため、pycおよびpyoは削除しておく
+find ${PYTHON_PREFIX} -depth \
     \( \
-      \( -type d -a \( -name test -o -name tests -o -name idle_test \) \) \
-      -o \( -type f -a \( -name '*.pyc' -o -name '*.pyo' -o -name 'libpython*.a' \) \) \
-    \) -exec rm -rf '{}' +; \
-  find ${PYTHON_PREFIX} -type f -executable -not \( -name '*tkinter*' \) \
+        \( -type d -a \( -name test -o -name tests -o -name idle_test \) \) \
+        -o \( -type f -a \( -name '*.pyc' -o -name '*.pyo' -o -name 'libpython*.a' \) \) \
+    \) -exec rm -rf '{}' +
+
+# クリーンナップ処理(もしかし不要?)
+apk del --no-network .build-deps
+export PATH=${PYTHON_PREFIX}/bin:$PATH
+export PYTHONDONTWRITEBYTECODE=1
+# Pythonのバージョンを確認のため出力
+python3 --version
+pip3 --version
+EOM
+
+# pythonビルドステージで依存soからapkパッケージ名リストを生成して保存
+RUN <<EOM
+set -eux
+find "${PYTHON_PREFIX}" -type f -executable -not \( -name '*tkinter*' \) \
     -exec scanelf --needed --nobanner --format '%n#p' '{}' ';' \
     | tr ',' '\n' \
     | sort -u \
-    | awk 'system("[ -e ${PYTHON_PREFIX}/lib/" $1 " ]") == 0 { next } { print "so:" $1 }' \
-    | xargs -rt apk add --no-network --virtual .python-rundeps; \
-  apk del --no-network .build-deps; \
-  export PATH=${PYTHON_PREFIX}/bin:$PATH; \
-  export PYTHONDONTWRITEBYTECODE=1; \
-  python3 --version; \
-  pip3 --version
+    | awk 'system("[ -e ${PYTHON_PREFIX}/lib/" $1 " ]") == 0 { next } { print $1 }' \
+    > ${PYTHON_PREFIX}/.needed-libs.txt
+# ここでso:libxxx.so.*のリストができる
+EOM
 
 FROM php:8.3-alpine3.21 AS php-exts
+
+
 WORKDIR /usr/local
-RUN export MAKEFLAGS="-j$(($(nproc) * 2 + 1))" && \
-    apk add libzip-dev && \
-    touch /tmp/now && \
-    touch /tmp/basefile && \
-    docker-php-ext-install mysqli pdo_mysql zip && \
-    find /usr/local -newer /tmp/now -type f > /tmp/files && \
+RUN <<EOM
+    set -e
+    export MAKEFLAGS="-j$(($(nproc) * 2 + 1))"
+    apk add --no-cache libzip-dev
+    touch /tmp/now
+    touch /tmp/basefile
+    docker-php-ext-install mysqli pdo_mysql zip
+    find /usr/local -newer /tmp/now -type f > /tmp/files
     tar cvzf /tmp/exts.tar.gz $(cat /tmp/files)
+    rm -f /tmp/now /tmp/basefile /tmp/files
+    apk del libzip-dev
+EOM
 
 FROM php:8.3-alpine3.21
 ARG USER_NAME=vscode
 ARG USER_UID=1000
 ARG USER_GID=1000
 
-ENV PYTHON_VERSION=3.13.3
-ARG PYTHON_PREFIX=/opt/python-3.13.3
+ARG PYTHON_VERSION
+ARG PYTHON_PREFIX
+
 
 COPY --from=uv-source /usr/local/bin/uv /usr/local/bin/uvx /opt/uv/
 COPY --from=python ${PYTHON_PREFIX} ${PYTHON_PREFIX}
@@ -128,7 +150,7 @@ RUN tar xvzf /tmp/exts.tar.gz -C / && \
     ln -sf php.ini-development php.ini && \
     echo "date.timezone = Asia/Tokyo" >> php.ini
 
-RUN apk add --no-cache musl-locales tzdata && \
+RUN apk add --no-cache tzdata && \
     cp /usr/share/zoneinfo/Asia/Tokyo /etc/localtime && \
     apk del tzdata && \
     echo "Asia/Tokyo" > /etc/timezone
@@ -138,13 +160,37 @@ RUN addgroup -g ${USER_GID} ${USER_NAME} && \
 
 RUN apk add --no-cache git xz
 
+RUN <<EOM
+set -eux
+
+so_list=$(cat ${PYTHON_PREFIX}/.needed-libs.txt)
+pkgs=""
+for so in $so_list; do
+  case "$so" in
+    libbz2.so.1) pkgs="$pkgs bzip2";;
+    libffi.so.8) pkgs="$pkgs libffi";;
+    libgdbm.so.6|libgdbm_compat.so.4) pkgs="$pkgs gdbm";;
+    liblzma.so.5) pkgs="$pkgs xz-libs";;
+    libncursesw.so.6|libpanelw.so.6) pkgs="$pkgs ncurses-libs";;
+    libreadline.so.8) pkgs="$pkgs readline";;
+    libsqlite3.so.0) pkgs="$pkgs sqlite-libs";;
+    libssl.so.3|libcrypto.so.3) pkgs="$pkgs openssl";;
+    libuuid.so.1) pkgs="$pkgs libuuid";;
+    libz.so.1) pkgs="$pkgs zlib";;
+    libc.musl-*.so.1) ;; # musl libcは無視
+    *) echo "Unmapped so: $so" ;;
+  esac
+done
+apk add --no-cache $pkgs
+
+EOM
+
 ENV LC_ALL=ja_JP.UTF-8
 ENV LANG=ja_JP.UTF-8
 
 USER ${USER_NAME}
 ENV HOME=/home/${USER_NAME}
 ENV PATH=$HOME/.local/bin:$PATH
-WORKDIR /var/www/html
 WORKDIR ${HOME}
 
 CMD ["php", "-S", "0.0.0.0:80", "-t", "/var/www/html"]
