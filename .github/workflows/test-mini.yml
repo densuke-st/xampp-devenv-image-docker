@@ -62,6 +62,7 @@ jobs:
           run: |
             set -e
             cd build
+            docker compose create --quiet-pull ${{ matrix.type }}
             docker compose up ${{ matrix.type }} -d
             sleep 5
         - name: "イメージのテスト"
@@ -74,7 +75,7 @@ jobs:
           run: |
             set -e
             cd build
-            docker compose down -t 1 -v --remove-orphans || true
+            docker compose down -t 1 -v --rmi local --remove-orphans || true
             docker image prune -f || true
             docker volume prune -f || true
             
