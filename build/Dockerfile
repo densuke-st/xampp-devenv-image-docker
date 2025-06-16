@@ -17,7 +17,9 @@ RUN <<EOT
     # ビルド前のタイムスタンプを記録しておく
     touch /tmp/now &&
     # 必要な拡張をインストール(mysqli, pdo_mysql, zip)
-    export LDFLAGS="-fuse-ld=mold" &&
+    export LDFLAGS="-fuse-ld=mold"
+    export CC=clang
+    export CXX=clang++
     docker-php-ext-install mysqli pdo_mysql zip &&
     apt-get purge --auto-remove --purge -y libzip-dev mold &&
     # クリーンナップ
