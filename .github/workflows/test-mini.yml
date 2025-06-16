@@ -52,6 +52,13 @@ jobs:
             type: [ubuntu, alpine]
         runs-on: ubuntu-24.04
         steps:
+        - name: Dockerキャッシュの復元
+          uses: actions/cache@v4
+          with:
+            path: ~/.docker
+            key: ${{ runner.os }}-docker-${{ matrix.type }}-${{ hashFiles('build/**/Dockerfile') }}
+            restore-keys: |
+              ${{ runner.os }}-docker-${{ matrix.type }}-
         - name: チェックアウト
           uses: actions/checkout@v4
         - name: "buildx: QEMUのセットアップ"
@@ -62,9 +69,9 @@ jobs:
           run: |
             set -e
             cd build
-            docker compose create --quiet-pull ${{ matrix.type }}
+            # キャッシュに乗った文が使われる続けると困るので、--pull buildで対応
+            docker compose create --pull build --quiet-pull ${{ matrix.type }}
             docker compose up ${{ matrix.type }} -d
-            sleep 5
         - name: "イメージのテスト"
           run: |
             set -e
@@ -76,6 +83,14 @@ jobs:
             set -e
             cd build
             docker compose down -t 1 -v --rmi local --remove-orphans || true
-            docker image prune -f || true
-            docker volume prune -f || true
-            
+            # キャッシュの恩恵を受けるため、イメージキャッシュは残してコンテナは削除する
+            docker container prune -f || true
+        - name: Dockerキャッシュの保存
+          if: always()
+          uses: actions/cache@v4
+          with:
+            path: ~/.docker
+            key: ${{ runner.os }}-docker-${{ matrix.type }}-${{ hashFiles('build/**/Dockerfile') }}
+            restore-keys: |
+              ${{ runner.os }}-docker-${{ matrix.type }}-
+
