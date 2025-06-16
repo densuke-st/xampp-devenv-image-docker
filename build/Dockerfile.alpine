@@ -114,7 +114,7 @@ WORKDIR /usr/local
 RUN <<EOM
     set -e
     export MAKEFLAGS="-j$(($(nproc) * 2 + 1))"
-    apk add --no-cache --virtual .build-deps libzip-dev clang clang-dev llvm mold
+    apk add --no-cache --virtual .build-deps libzip-dev clang clang-dev llvm mold 
     touch /tmp/now
     touch /tmp/basefile
     export CC=clang
@@ -164,7 +164,7 @@ RUN apk add --no-cache tzdata && \
 RUN addgroup -g ${USER_GID} ${USER_NAME} && \
     adduser -D -u ${USER_UID} -G ${USER_NAME} ${USER_NAME}
 
-RUN apk add --no-cache git xz
+RUN apk add --no-cache git xz libzip
 
 RUN <<EOM
 set -eux
