@@ -13,12 +13,15 @@ RUN <<EOT
     export MAKEFLAGS="-j$(($(nproc) * 2 + 1))" &&
     # ビルドに必要なライブラリを追加
     apt-get update &&
-    apt-get install -y libzip-dev && 
+    apt-get install -y libzip-dev mold clang && 
     # ビルド前のタイムスタンプを記録しておく
     touch /tmp/now &&
     # 必要な拡張をインストール(mysqli, pdo_mysql, zip)
+    export LDFLAGS="-fuse-ld=mold"
+    export CC=clang
+    export CXX=clang++
     docker-php-ext-install mysqli pdo_mysql zip &&
-    apt-get purge --auto-remove --purge -y libzip-dev &&
+    apt-get purge --auto-remove --purge -y libzip-dev mold clang &&
     # クリーンナップ
     apt-get clean &&
     rm -fr /var/lib/apt/lists/* 

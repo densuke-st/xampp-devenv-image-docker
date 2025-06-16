@@ -19,10 +19,11 @@ set -eux
 
 apk add --no-cache --virtual .build-deps \
     gnupg tar xz bluez-dev bzip2-dev dpkg-dev \
-    dpkg findutils gcc gdbm-dev libc-dev libffi-dev \
+    dpkg findutils gdbm-dev libc-dev libffi-dev \
     libnsl-dev libtirpc-dev linux-headers make ncurses-dev \
     openssl-dev pax-utils readline-dev sqlite-dev tcl-dev \
-    tk tk-dev util-linux-dev xz-dev zlib-dev
+    tk tk-dev util-linux-dev xz-dev zlib-dev \
+    clang llvm clang-dev mold
 
 wget -O python.tar.xz "${PYTHON_SRC}"
 ## この部分はしばらくコメントにしますが、今後SHA256チェックは復活させたいです。
@@ -43,7 +44,9 @@ cd /usr/src/python
 
 # Configure
 gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"
-./configure \
+export CC=clang
+export CXX=clang++
+CC=clang CXX=clang++ ./configure \
     --prefix="$PYTHON_PREFIX" \
     --build="$gnuArch" \
     --enable-loadable-sqlite-extensions \
@@ -54,7 +57,7 @@ gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"
 
 nproc="$(nproc)"
 EXTRA_CFLAGS="-DTHREAD_STACK_SIZE=0x100000"
-LDFLAGS="${LDFLAGS:--Wl},--strip-all"
+LDFLAGS="${LDFLAGS:--Wl},--strip-all,-fuse-ld=mold"
 arch="$(apk --print-arch)"
 case "$arch" in
     x86_64|aarch64)
@@ -111,14 +114,17 @@ WORKDIR /usr/local
 RUN <<EOM
     set -e
     export MAKEFLAGS="-j$(($(nproc) * 2 + 1))"
-    apk add --no-cache libzip-dev
+    apk add --no-cache --virtual .build-deps libzip-dev clang clang-dev llvm mold
     touch /tmp/now
     touch /tmp/basefile
+    export CC=clang
+    export CXX=clang++
+    export LDFLAGS="-fuse-ld=mold"
     docker-php-ext-install mysqli pdo_mysql zip
     find /usr/local -newer /tmp/now -type f > /tmp/files
     tar cvzf /tmp/exts.tar.gz $(cat /tmp/files)
     rm -f /tmp/now /tmp/basefile /tmp/files
-    apk del libzip-dev
+    apk del .build-deps
 EOM
 
 FROM php:8.3-alpine3.21
