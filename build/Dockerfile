@@ -67,6 +67,11 @@ RUN <<EOT
     ln -sf php.ini-development php.ini &&
     # タイムゾーンを設定
     echo "date.timezone = Asia/Tokyo" >> php.ini
+    # zipのライブラリを足す
+    apt-get update &&
+    apt-get install -y libzip4 &&
+    apt-get clean && rm -fr /var/lib/apt/lists/*
+
 EOT
 
 # ユーザーを追加し、sudo権限を付与
