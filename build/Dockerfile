@@ -21,7 +21,7 @@ RUN <<EOT
     export CC=clang
     export CXX=clang++
     docker-php-ext-install mysqli pdo_mysql zip &&
-    apt-get purge --auto-remove --purge -y libzip-dev mold &&
+    apt-get purge --auto-remove --purge -y libzip-dev mold clang &&
     # クリーンナップ
     apt-get clean &&
     rm -fr /var/lib/apt/lists/* 
