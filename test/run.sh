@@ -13,10 +13,11 @@ for test_file in "$TEST_DIR"/*.sh; do
   if [ -f "$test_file" ]; then
     TESTS=$(expr $TESTS + 1)
     echo "${MARKER}: Running test: $test_file"
-    sh "$test_file" > tmp_test_output 2>&1
+    tmp_test_output=$(mktemp)
+    sh "$test_file" > "$tmp_test_output" 2>&1
     test_result=$?
-    sed "s/^/${MARKER}: /" tmp_test_output
-    rm -f tmp_test_output
+    sed "s/^/${MARKER}: /" "$tmp_test_output"
+    rm -f "$tmp_test_output"
     if [ $test_result -ne 0 ]; then
       echo "${MARKER}: Test failed: $test_file"
     else
