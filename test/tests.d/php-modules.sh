@@ -8,8 +8,7 @@ INSTALLED_MODULES=$(php -m)
 
 # 必要なモジュールがインストールされているか確認
 for module in $REQUIRED_MODULES; do
-  echo "$INSTALLED_MODULES" | grep -q "$module"
-  if [ $? -ne 0 ]; then
+  if ! echo "$INSTALLED_MODULES" | grep -qw "$module"; then
     echo "Missing PHP module: $module"
     exit 1
   fi
