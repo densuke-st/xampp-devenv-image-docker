@@ -1,11 +1,11 @@
 services:
-  test-ubuntu:
+  ubuntu:
     build: .
     volumes:
       - ../test:/test
     command: tail -f /dev/null
 
-  test-alpine:
+  alpine:
     build: .
     volumes:
       - ../test:/test
