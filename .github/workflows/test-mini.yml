@@ -74,7 +74,7 @@ jobs:
             docker compose up ${{ matrix.type }} -d
         - name: "イメージのテスト"
           run: |
-            set -e
+            set -ex
             cd build
             docker compose exec ${{ matrix.type }} sh /test/run.sh ${{ matrix.type }}
         - name: "イメージのクリーンアップ"

@@ -68,7 +68,7 @@ jobs:
             tags: ghcr.io/${{ github.repository_owner }}/xampp-devenv:testing-${{ matrix.tag_suffix }}
         - name: ビルドしたイメージのチェック
           run: |
-            docker run --rm -v ${PWD}/test:/test ghcr.io/${{ github.repository_owner }}/xampp-devenv:testing-${{ matrix.tag_suffix }} sh /test/run.sh
+            docker run --rm -v ${PWD}/test:/test ghcr.io/${{ github.repository_owner }}/xampp-devenv:testing-${{ matrix.tag_suffix }} sh /test/run.sh ubuntu-${{matrix.tag_suffix }}
         - name: "(act上)イメージの削除"
           if: needs.check-act.outputs.IS_ACT == 'true'
           run: |
@@ -107,7 +107,7 @@ jobs:
             tags: ghcr.io/${{ github.repository_owner }}/xampp-devenv:testing-alpine-${{ matrix.tag_suffix }}
         - name: ビルドしたイメージのチェック
           run: |
-            docker run --rm -v ${PWD}/test:/test ghcr.io/${{ github.repository_owner }}/xampp-devenv:testing-alpine-${{ matrix.tag_suffix }} sh /test/run.sh
+            docker run --rm -v ${PWD}/test:/test ghcr.io/${{ github.repository_owner }}/xampp-devenv:testing-alpine-${{ matrix.tag_suffix }} sh /test/run.sh alpine-${{matrix.tag_suffix }}
         - name: "(act上)イメージの削除"
           if: needs.check-act.outputs.IS_ACT == 'true'
           run: |
