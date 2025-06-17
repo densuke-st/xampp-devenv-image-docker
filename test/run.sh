@@ -5,15 +5,26 @@
 # 出力する。
 # テストに成功すれば(戻り値0)passedを、失敗すれば(非ゼロ)failedを出力する
 TEST_DIR=$(dirname "$0")/tests.d
-MARKER="$1"
+if [ -z "$1" ]; then  
+  echo "Error: MARKER_STRING argument is required." >&2  
+  echo "Usage: $(basename "$0") <MARKER_STRING>" >&2  
+  exit 1  
+fi  
+MARKER="$1" 
 TESTS=0
 PASSED=0
 # テストコードの実行
 for test_file in "$TEST_DIR"/*.sh; do
   if [ -f "$test_file" ]; then
-    TESTS=$(expr $TESTS + 1)
+    TESTS=$((TESTS + 1))
     echo "${MARKER}: Running test: $test_file"
     tmp_test_output=$(mktemp)
+    if [ ! -f "$tmp_test_output" ]; then  
+      echo "${MARKER}: Error: Failed to create temporary file for $test_file." >&2  
+      # This test will be counted in TESTS but not in PASSED, effectively marking it as failed.  
+      continue  
+    fi  
+
     sh "$test_file" > "$tmp_test_output" 2>&1
     test_result=$?
     sed "s/^/${MARKER}: /" "$tmp_test_output"
@@ -22,7 +33,7 @@ for test_file in "$TEST_DIR"/*.sh; do
       echo "${MARKER}: Test failed: $test_file"
     else
       echo "${MARKER}: Test passed: $test_file"
-      PASSED=$(expr $PASSED + 1)
+      PASSED=$((PASSED + 1))
     fi
   fi
 done
@@ -34,4 +45,4 @@ else
   echo "${MARKER}: Some tests failed. Total: $TESTS, Passed: $PASSED"
 fi
 
-exit $(expr $TESTS - $PASSED)
+exit $((TESTS - PASSED))
