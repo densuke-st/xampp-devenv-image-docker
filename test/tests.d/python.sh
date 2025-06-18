@@ -18,3 +18,4 @@ if [ "$(printf '%s\n' "$REQUIRED_VERSION" "$PYTHON_VERSION" | sort -V | head -n1
   echo "Error: Python version must be at least $REQUIRED_VERSION(${PYTHON_VERSION})."
   exit 1
 fi
+exit 0
