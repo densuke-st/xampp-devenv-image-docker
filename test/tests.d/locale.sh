@@ -7,3 +7,4 @@ if [ "$CURRENT_LOCALE" != "$REQUIRED_LOCALE" ]; then
   echo "Error: LC_ALL is not set to $REQUIRED_LOCALE. Current LC_ALL is $CURRENT_LOCALE."
   exit 1
 fi
+exit 0
