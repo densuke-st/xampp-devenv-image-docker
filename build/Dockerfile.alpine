@@ -51,10 +51,21 @@ RUN tar xvzf /tmp/exts.tar.gz -C / && \
 RUN apk add --no-cache tzdata && \
     cp /usr/share/zoneinfo/Asia/Tokyo /etc/localtime && \
     apk del tzdata && \
-    echo "Asia/Tokyo" > /etc/timezone
+    echo "Asia/Tokyo" > /etc/timezone && \
+    apk add --no-cache musl-locales
 
-RUN addgroup -g ${USER_GID} ${USER_NAME} && \
-    adduser -D -u ${USER_UID} -G ${USER_NAME} ${USER_NAME}
+# sudo
+RUN apk add --no-cache sudo && \
+    sed -i -e 's/^%sudo.*/%sudo ALL=(ALL) NOPASSWD:ALL/' /etc/sudoers && \
+    sed -i -e 's/^root:/root:x:0:0:root:\/root:\/bin\/ash/' /etc/passwd
+
+RUN <<EOM
+set -e
+addgroup -g ${USER_GID} ${USER_NAME}
+adduser -D -u ${USER_UID} -G ${USER_NAME} ${USER_NAME}
+# sudoにエントリを追加
+echo "${USER_NAME} ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+EOM
 
 RUN <<EOM
 # Pythonのdynloadで構成されたライブラリで、必要なものを抽出してインストールする
