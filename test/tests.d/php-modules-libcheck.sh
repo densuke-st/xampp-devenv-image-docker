@@ -19,17 +19,18 @@ fi
 for dll in *.so; do
     echo -n "Checking dependencies for ${dll}..."
     # Check if ldd command itself failed  
-    if ! ldd "${dll}" >/dev/null 2>&1; then  
-        echo " Error: ldd command failed for ${dll} (e.g., not a dynamic executable or missing fundamental libs)." >&2  
-        echo "${ldd_output}" >&2  
-        exit 1  
-    fi  
-    # ldd command succeeded, now check its output for "not found"  
-    if echo "${ldd_output}" | grep -q "not found"; then  
-        echo " Error: Missing dependencies for ${dll} (found 'not found' in ldd output)." >&2  
-        echo "${ldd_output}" >&2  
-        exit 1  
-    fi  
+    ldd_output=$(ldd "${dll}" 2>&1)
+    if ! ldd "${dll}" >/dev/null 2>&1; then
+        echo " Error: ldd command failed for ${dll} (e.g., not a dynamic executable or missing fundamental libs)." >&2
+        echo "${ldd_output}" >&2
+        exit 1
+    fi
+    if echo "${ldd_output}" | grep -q "not found"; then
+        echo " Error: Missing dependencies for ${dll} (found 'not found' in ldd output)." >&2
+        echo "${ldd_output}" >&2
+        exit 1
+    fi
+    echo "OK"
 done
 echo "All PHP extension libraries have their dependencies satisfied."
 exit 0
