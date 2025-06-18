@@ -37,6 +37,7 @@ for dll_file in *.so; do
     fi  
 done  
 
-if ! $found_any_so_files; then  
-  echo "No .so files found in ${LIBDIR} to check." >&2  
-fi  
+if ! $found_any_so_files; then
+  echo "Error: Glob *.so expanded, but no regular .so files were found to check in ${LIBDIR}." >&2
+  exit 1
+fi
