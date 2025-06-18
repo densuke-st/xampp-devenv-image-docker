@@ -20,12 +20,23 @@ if [ "$1" = "*.so" ] || [ $# -eq 0 ]; then
   exit 1
 fi
 
-for dll in *.so; do
-    echo -n "Checking dependencies for ${dll}..."
-    if ! ldd "${dll}" 2>&1 | grep -q "not found"; then
-        echo "OK"
-    else
-        echo "Error: Missing dependencies for ${dll}."
-        exit 1
-    fi
-done
+found_any_so_files=false  
+for dll_file in *.so; do  
+    if ! [ -f "$dll_file" ]; then  
+        continue  
+    fi  
+    found_any_so_files=true  
+
+    echo -n "Checking dependencies for ${dll_file}..."  
+    if ! ldd "${dll_file}" 2>&1 | grep -q "not found"; then  
+        echo " OK"  
+    else  
+        echo " Error: Missing dependencies for ${dll_file}." >&2  
+        ldd "${dll_file}" 2>&1 | grep --color=never "not found" >&2  
+        exit 1  
+    fi  
+done  
+
+if ! $found_any_so_files; then  
+  echo "No .so files found in ${LIBDIR} to check." >&2  
+fi  
