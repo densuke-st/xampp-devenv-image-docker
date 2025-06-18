@@ -1,6 +1,6 @@
 #!/bin/sh
 # 拡張モジュールのDLLが必要なライブラリを全て持っているかを確認する
-LIBPATH=$(php -i 2>/dev/null | grep extension_dir  | awk '{print $3}' | grep ^/)
+LIBPATH=$(php -r "echo ini_get('extension_dir');" 2>/dev/null)
 if [ -z "$LIBPATH" ]; then
   echo "Error: Unable to determine PHP extension directory."
   exit 1
@@ -18,8 +18,18 @@ fi
 # 拡張モジュールのDLLをチェックする
 for dll in *.so; do
     echo -n "Checking dependencies for ${dll}..."
-    ldd "${dll}"  2>&1 | grep -q "not found" && exit 1
-    echo "OK"
+    # Check if ldd command itself failed  
+    if ! ldd "${dll}" >/dev/null 2>&1; then  
+        echo " Error: ldd command failed for ${dll} (e.g., not a dynamic executable or missing fundamental libs)." >&2  
+        echo "${ldd_output}" >&2  
+        exit 1  
+    fi  
+    # ldd command succeeded, now check its output for "not found"  
+    if echo "${ldd_output}" | grep -q "not found"; then  
+        echo " Error: Missing dependencies for ${dll} (found 'not found' in ldd output)." >&2  
+        echo "${ldd_output}" >&2  
+        exit 1  
+    fi  
 done
 echo "All PHP extension libraries have their dependencies satisfied."
 exit 0

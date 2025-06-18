@@ -10,7 +10,7 @@ if [ "$(id -g)" -ne 1000 ]; then
   echo "Error: Group ID is not 1000. Current group ID is $(id -g)."
   exit 1
 fi
-if ! sudo -l | grep -q "(ALL) NOPASSWD: ALL"; then
+if ! sudo -l | grep -Eq "\(ALL(: ALL)?\) NOPASSWD: ALL"; then
   echo "Error: User $(id -un) is not in the sudoers file." >&2
   exit 1
 fi
