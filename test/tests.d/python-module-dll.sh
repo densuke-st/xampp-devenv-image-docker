@@ -28,11 +28,15 @@ for dll_file in *.so; do
     found_any_so_files=true  
 
     echo -n "Checking dependencies for ${dll_file}..."  
-    if ! ldd "${dll_file}" 2>&1 | grep -q "not found"; then  
+    ldd_full_output=$(ldd "${dll_file}" 2>&1)
+    ldd_exit_status=$?
+    ldd_full_output=$(echo "${ldd_full_output}" | grep -v "symbol not found")
+
+    if ! echo ${ldd_full_output} | grep -q "not found"; then  
         echo " OK"  
     else  
         echo " Error: Missing dependencies for ${dll_file}." >&2  
-        ldd "${dll_file}" 2>&1 | grep --color=never "not found" >&2  
+        echo "${ldd_full_output}" | grep --color=never "not found" >&2  
         exit 1  
     fi  
 done  
