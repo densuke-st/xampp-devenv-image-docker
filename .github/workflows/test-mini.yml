@@ -1,0 +1,96 @@
+# build/Dockerfileを使って、イメージ densukest/xampp-devenv:latest をビルドする
+# ビルド後イメージを densukest/xampp-devenv:latest としてpushする
+
+name: イメージに対するテスト
+
+
+# 起動タイミング:
+# - 各ブランチへのpush
+# - mainブランチへのPull Request
+
+on:
+  push:
+    branches-ignore:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch: # 手動実行
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# GHCRへのプッシュにはパーミッションが必要です
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+
+    # actで実行しているかのチェック(一部のアクションを動かさないようにするため)
+    check-act:
+      runs-on: ubuntu-latest
+      outputs:
+        IS_ACT: ${{ steps.check-act.outputs.IS_ACT }}
+      steps:
+        - name: actのチェック
+          id: check-act
+          run: |
+            R=false
+            [ -n "$ACT" ] && R=true
+            [ -n "$GITHUB_EVENT_NAME" ] && [ "$GITHUB_EVENT_NAME" = "pull_request" ] && R=true
+            echo "IS_ACT=$R" >> $GITHUB_OUTPUT
+
+    build-and-test:
+        needs:
+          - check-act
+        strategy:
+          fail-fast: true
+          matrix:
+            type: [ubuntu, alpine]
+        runs-on: ubuntu-24.04
+        steps:
+        - name: Dockerキャッシュの復元
+          uses: actions/cache@v4
+          with:
+            path: ~/.docker
+            key: ${{ runner.os }}-docker-${{ matrix.type }}-${{ hashFiles('build/**/Dockerfile') }}
+            restore-keys: |
+              ${{ runner.os }}-docker-${{ matrix.type }}-
+        - name: チェックアウト
+          uses: actions/checkout@v4
+        - name: "buildx: QEMUのセットアップ"
+          uses: docker/setup-qemu-action@v3
+        - name: "docker buildの準備"
+          uses: docker/setup-buildx-action@v3
+        - name: "イメージのビルド"
+          run: |
+            set -e
+            cd build
+            # キャッシュに乗った文が使われる続けると困るので、--pull buildで対応
+            docker compose create --pull build --quiet-pull ${{ matrix.type }}
+            docker compose up ${{ matrix.type }} -d
+        - name: "イメージのテスト"
+          run: |
+            set -ex
+            cd build
+            docker compose exec ${{ matrix.type }} sh /test/run.sh ${{ matrix.type }}
+        - name: "イメージのクリーンアップ"
+          if: always() && ${{ needs.check-act.outputs.IS_ACT != 'true' }}
+          run: |
+            set -e
+            cd build
+            docker compose down -t 1 -v --rmi local --remove-orphans || true
+            # キャッシュの恩恵を受けるため、イメージキャッシュは残してコンテナは削除する
+            docker container prune -f || true
+        - name: Dockerキャッシュの保存
+          if: always()
+          uses: actions/cache@v4
+          with:
+            path: ~/.docker
+            key: ${{ runner.os }}-docker-${{ matrix.type }}-${{ hashFiles('build/**/Dockerfile') }}
+            restore-keys: |
+              ${{ runner.os }}-docker-${{ matrix.type }}-
+
