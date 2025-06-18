@@ -1,4 +1,5 @@
 #!/bin/sh
+set -euo pipefail
 # ユーザーとしてvscodeで接続されていることを確認する
 # UID=1000、GID=1000、sudo可能であることを確認する
 
