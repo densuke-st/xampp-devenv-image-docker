@@ -22,10 +22,13 @@ fi
 
 for dll in *.so; do
     echo -n "Checking dependencies for ${dll}..."
-    if ! ldd "${dll}" 2>&1 | grep -q "not found"; then
-        echo "OK"
-    else
-        echo "Error: Missing dependencies for ${dll}."
+    ldd_output=$(ldd "${dll}" 2>&1)
+    ldd_status=$?
+
+    if [ ${ldd_status} -ne 0 ] || echo "${ldd_output}" | grep -q "not found"; then
+        echo "Error: Missing dependencies for ${dll}." >&2
         exit 1
+    else
+        echo "OK"
     fi
 done
