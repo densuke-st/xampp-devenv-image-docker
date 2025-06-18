@@ -45,9 +45,7 @@ ENV LC_ALL=ja_JP.UTF-8
 # あくまでuvが最低限のPythonを要求するための対応です。
 RUN <<EOT
     apt-get update && 
-    apt-get install -y git unzip python3-minimal locales sudo &&
-    # "python"で呼べるようリンクを貼っておく
-    ln -sf /usr/bin/python3 /usr/bin/python &&
+    apt-get install -y git unzip python3-minimal python-is-python3 locales sudo &&
     apt-get clean &&
     rm -fr /var/lib/apt/lists/* &&
     # OSレベルのロケール、タイムゾーンも日本向けに調整
