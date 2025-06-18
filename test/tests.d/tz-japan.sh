@@ -1,4 +1,5 @@
 #!/bin/sh
+set -euo pipefail
 # タイムゾーンが日本になっていることを確認する
 TIMEZONE=$(date +%Z)
 if [ "$TIMEZONE" != "JST" ]; then
