@@ -34,7 +34,6 @@ ARG USER_UID=1000
 ARG USER_GID=1000
 
 ARG PYTHON_VERSION
-ARG PYTHON_PREFIX
 
 
 COPY --from=python-source /usr/local /usr/local
@@ -65,7 +64,11 @@ for so in *.so; do
     ldd $so 2>&1 | grep '^Error loading shared library' | awk '{print $5}' |
     cut -d: -f1 | sed -e 's/^/so:/'
 done >> "${LIST}"
-apk add --no-cache git xz libzip $(cat ${LIST})
+# LISTで追加で必要なライブラリがあれば、インストールする(ファイルサイズが空か否かで判断)
+if [ -s "${LIST}" ]; then
+    apk add --no-cache $(cat "${LIST}")
+fi
+apk add --no-cache git xz libzip 
 rm -f "${LIST}"
 EOM
 
