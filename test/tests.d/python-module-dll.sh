@@ -29,9 +29,11 @@ for dll_file in *.so; do
     found_any_so_files=true  
 
     echo -n "Checking dependencies for ${dll_file}..."  
+    set +e
     ldd_full_output=$(ldd "${dll_file}" 2>&1)
     ldd_exit_status=$?
     ldd_full_output=$(echo "${ldd_full_output}" | grep -v "symbol not found")
+    set -e
 
     if ! echo ${ldd_full_output} | grep -q "not found"; then  
         echo " OK"  
