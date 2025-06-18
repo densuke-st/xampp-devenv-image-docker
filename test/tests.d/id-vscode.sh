@@ -14,3 +14,4 @@ if ! sudo -l | grep -Eq "\(ALL(: ALL)?\) NOPASSWD: ALL"; then
   echo "Error: User $(id -un) is not in the sudoers file." >&2
   exit 1
 fi
+exit 0
