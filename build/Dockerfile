@@ -46,6 +46,8 @@ ENV LC_ALL=ja_JP.UTF-8
 RUN <<EOT
     apt-get update && 
     apt-get install -y git unzip python3-minimal locales sudo &&
+    # "python"で呼べるようリンクを貼っておく
+    ln -sf /usr/bin/python3 /usr/bin/python &&
     apt-get clean &&
     rm -fr /var/lib/apt/lists/* &&
     # OSレベルのロケール、タイムゾーンも日本向けに調整
