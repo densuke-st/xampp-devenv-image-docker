@@ -1,4 +1,5 @@
 #!/bin/sh
+set -euo pipefail
 # Pythonのインストールを確認
 # - pythonコマンドで呼びだせるか
 # - python3コマンドで呼びだせるか
