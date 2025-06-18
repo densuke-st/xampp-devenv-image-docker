@@ -57,32 +57,18 @@ RUN apk add --no-cache tzdata && \
 RUN addgroup -g ${USER_GID} ${USER_NAME} && \
     adduser -D -u ${USER_UID} -G ${USER_NAME} ${USER_NAME}
 
-RUN apk add --no-cache git xz libzip
-
 RUN <<EOM
-set -eux
-
-# so_list=$(cat ${PYTHON_PREFIX}/.needed-libs.txt)
-# pkgs=""
-# for so in $so_list; do
-#   case "$so" in
-#     libbz2.so.1) pkgs="$pkgs bzip2";;
-#     libffi.so.8) pkgs="$pkgs libffi";;
-#     libgdbm.so.6|libgdbm_compat.so.4) pkgs="$pkgs gdbm";;
-#     liblzma.so.5) pkgs="$pkgs xz-libs";;
-#     libncursesw.so.6|libpanelw.so.6) pkgs="$pkgs ncurses-libs";;
-#     libreadline.so.8) pkgs="$pkgs readline";;
-#     libsqlite3.so.0) pkgs="$pkgs sqlite-libs";;
-#     libssl.so.3|libcrypto.so.3) pkgs="$pkgs openssl";;
-#     libuuid.so.1) pkgs="$pkgs libuuid";;
-#     libz.so.1) pkgs="$pkgs zlib";;
-#     libc.musl-*.so.1) ;; # musl libcは無視
-#     *) echo "Unmapped so: $so" ;;
-#   esac
-# done
-# apk add --no-cache $pkgs
-
+# Pythonのdynloadで構成されたライブラリで、必要なものを抽出してインストールする
+LIST=$(mktemp)
+cd /usr/local/lib/python${PYTHON_VERSION%.*}/lib-dynload
+for so in *.so; do
+    ldd $so 2>&1 | grep '^Error loading shared library' | awk '{print $5}' |
+    cut -d: -f1 | sed -e 's/^/so:/'
+done >> "${LIST}"
+apk add --no-cache git xz libzip $(cat ${LIST})
+rm -f "${LIST}"
 EOM
+
 
 ENV LC_ALL=ja_JP.UTF-8
 ENV LANG=ja_JP.UTF-8
