@@ -1,5 +1,5 @@
 #!/bin/sh
-set -euo pipefail
+set -eu
 # PHPのモードがdevになっていることを確認する
 # php -iでerror_reportingの値がE_ALLを指す32767稼働かを確認する
 REQUIRED_ERROR_REPORTING=32767
