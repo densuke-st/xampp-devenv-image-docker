@@ -1,12 +1,9 @@
 # build/Dockerfileを使って、イメージ densukest/xampp-devenv:latest をビルドする
 # ビルド後イメージを densukest/xampp-devenv:latest としてpushする
 
-name: イメージビルドのテスト
+name: イメージビルドのテスト(マルチアーキテクチャ)
 
 on:
-  push:
-    branches-ignore:
-      - main
   pull_request:
     branches:
       - main
@@ -69,10 +66,14 @@ jobs:
             push: false
             load: true
             tags: ghcr.io/${{ github.repository_owner }}/xampp-devenv:testing-${{ matrix.tag_suffix }}
+        - name: ビルドしたイメージのチェック
+          run: |
+            docker run --rm -v ${PWD}/test:/test ghcr.io/${{ github.repository_owner }}/xampp-devenv:testing-${{ matrix.tag_suffix }} sh /test/run.sh ubuntu-${{matrix.tag_suffix }}
         - name: "(act上)イメージの削除"
           if: needs.check-act.outputs.IS_ACT == 'true'
           run: |
             docker rmi ghcr.io/${{ github.repository_owner }}/xampp-devenv:testing-${{ matrix.tag_suffix }} || true
+ 
     build-alpine:
         needs:
           - check-act
@@ -104,6 +105,9 @@ jobs:
             push: false
             load: true
             tags: ghcr.io/${{ github.repository_owner }}/xampp-devenv:testing-alpine-${{ matrix.tag_suffix }}
+        - name: ビルドしたイメージのチェック
+          run: |
+            docker run --rm -v ${PWD}/test:/test ghcr.io/${{ github.repository_owner }}/xampp-devenv:testing-alpine-${{ matrix.tag_suffix }} sh /test/run.sh alpine-${{matrix.tag_suffix }}
         - name: "(act上)イメージの削除"
           if: needs.check-act.outputs.IS_ACT == 'true'
           run: |
