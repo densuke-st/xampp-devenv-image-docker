@@ -7,3 +7,4 @@ if [ "$CURRENT_ERROR_REPORTING" != "$REQUIRED_ERROR_REPORTING" ]; then
   echo "Error: error_reporting is not set to $REQUIRED_ERROR_REPORTING. Current error_reporting is $CURRENT_ERROR_REPORTING."
   exit 1
 fi
+exit 0
