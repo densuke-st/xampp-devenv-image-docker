@@ -19,15 +19,21 @@ fi
 for dll in *.so; do
     echo -n "Checking dependencies for ${dll}..."
     # Check if ldd command itself failed  
-    ldd_output=$(ldd "${dll}" 2>&1)
-    if ! ldd "${dll}" >/dev/null 2>&1; then
-        echo " Error: ldd command failed for ${dll} (e.g., not a dynamic executable or missing fundamental libs)." >&2
-        echo "${ldd_output}" >&2
+    ldd_full_output=$(ldd "${dll}" 2>&1)
+    ldd_exit_status=$?
+
+    if [ "${ldd_exit_status}" -ne 0 ]; then
+        if echo "${ldd_full_output}" | grep -q "not found"; then
+            echo " Error: Missing dependencies for ${dll} (found 'not found' in ldd output). ldd exit status: ${ldd_exit_status}" >&2
+        else
+            echo " Error: ldd command failed for ${dll} (e.g., not a dynamic executable or missing fundamental libs). ldd exit status: ${ldd_exit_status}" >&2
+        fi
+        echo "${ldd_full_output}" >&2
         exit 1
     fi
-    if echo "${ldd_output}" | grep -q "not found"; then
-        echo " Error: Missing dependencies for ${dll} (found 'not found' in ldd output)." >&2
-        echo "${ldd_output}" >&2
+    if echo "${ldd_full_output}" | grep -q "not found"; then
+        echo " Error: Missing dependencies for ${dll} (found 'not found' in ldd output, though ldd exited 0)." >&2
+        echo "${ldd_full_output}" >&2
         exit 1
     fi
     echo "OK"
