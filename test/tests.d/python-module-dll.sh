@@ -18,6 +18,7 @@ set -- *.so
 if [ "$1" = "*.so" ] || [ $# -eq 0 ]; then
   echo "Error: No Python extension libraries found."
   exit 1
+fi
 
 for dll in *.so; do
     echo -n "Checking dependencies for ${dll}..."
