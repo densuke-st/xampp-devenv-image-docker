@@ -1,4 +1,5 @@
 #!/bin/sh
+set -euo pipefail
 # 拡張モジュールのDLLが必要なライブラリを全て持っているかを確認する
 LIBPATH=$(php -r "echo ini_get('extension_dir');" 2>/dev/null)
 if [ -z "$LIBPATH" ]; then
