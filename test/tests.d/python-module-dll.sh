@@ -45,3 +45,5 @@ if ! $found_any_so_files; then
   echo "Error: Glob *.so expanded, but no regular .so files were found to check in ${LIBDIR}." >&2
   exit 1
 fi
+
+exit 0
