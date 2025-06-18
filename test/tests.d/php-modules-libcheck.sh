@@ -6,7 +6,7 @@ if [ -z "$LIBPATH" ]; then
   exit 1
 fi
 echo "PHP extension directory: $LIBPATH"
-cd ${LIBPATH} || exit 1
+cd "${LIBPATH}" || exit 1
 
 # 拡張モジュールのDLLをチェックする
 for dll in *.so; do
