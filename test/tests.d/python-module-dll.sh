@@ -1,5 +1,5 @@
 #!/bin/sh
-set -euo pipefail
+set -eu
 # PythonのDLLが必要としているライブラリが存在しているかを確認する
 # - 各環境のPythonのDLL(*.so)のあるディレクトリを調べて移動する
 # - 各DLL(*.so)にlddで確認し、必要なのに発見できないライブラリがあればエラーを出して終了する
