@@ -1,5 +1,5 @@
 #!/bin/sh
-# タイムゾーンがが日本になっていることを確認する
+# タイムゾーンが日本になっていることを確認する
 TIMEZONE=$(date +%Z)
 if [ "$TIMEZONE" != "JST" ]; then
   echo "Error: Timezone is not set to Japan Standard Time (JST). Current timezone is $TIMEZONE."
