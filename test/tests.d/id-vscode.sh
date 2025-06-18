@@ -11,6 +11,6 @@ if [ "$(id -g)" -ne 1000 ]; then
   exit 1
 fi
 if ! sudo -l | grep -q "(ALL) NOPASSWD: ALL"; then
-  echo "Error: User $USER_NAME is not in the sudoers file."
+  echo "Error: User $(id -un) is not in the sudoers file." >&2
   exit 1
 fi
