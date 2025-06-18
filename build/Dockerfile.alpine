@@ -1,114 +1,15 @@
-ARG PYTHON_VERSION=3.13.3
-ARG PYTHON_PREFIX=/opt/python-${PYTHON_VERSION}
+ARG PYTHON_VERSION=3.13.5
+ARG ALPINE_VERSION=3.22
+ARG PHP_VERSION=8.3
 
+# uvのalpineイメージは3.21までしかないのでここはしかたない(3.21ベースのものから借用)
 FROM ghcr.io/astral-sh/uv:alpine3.21 AS uv-source
 
-FROM php:8.3-alpine3.21 AS python
+# pythonはイメージから借用
+FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} AS python-source
 
-# PYTHON_VERSIONとPYTHON_PREFIXは本番イメージ側でも再定義が必要なので注意!
-ARG PYTHON_VERSION
-ARG PYTHON_PREFIX
-ARG PYTHON_SRC=https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz
 
-# ベースのPythonが更新されたらSHA256は確認して変更すること!
-ENV GPG_KEY=7169605F62C751356D054A26A821E680E5FA6305
-
-# Pythonビルド→インストール→必要なものを抽出→クリーンナップ
-RUN <<EOM
-set -eux
-
-apk add --no-cache --virtual .build-deps \
-    gnupg tar xz bluez-dev bzip2-dev dpkg-dev \
-    dpkg findutils gdbm-dev libc-dev libffi-dev \
-    libnsl-dev libtirpc-dev linux-headers make ncurses-dev \
-    openssl-dev pax-utils readline-dev sqlite-dev tcl-dev \
-    tk tk-dev util-linux-dev xz-dev zlib-dev \
-    clang llvm clang-dev mold
-
-wget -O python.tar.xz "${PYTHON_SRC}"
-## この部分はしばらくコメントにしますが、今後SHA256チェックは復活させたいです。
-## TODO: PythonソースのSHA256チェックを復活させる #12
-# echo "$PYTHON_SHA256 *python.tar.xz" | sha256sum -c -
-# wget -O python.tar.xz.asc "${PYTHON_SRC}.asc"
-# GNUPGHOME="$(mktemp -d)"
-# export GNUPGHOME
-# gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys "$GPG_KEY"
-# gpg --batch --verify python.tar.xz.asc python.tar.xz
-# gpgconf --kill all
-# rm -rf "$GNUPGHOME" python.tar.xz.asc
-
-mkdir -p /usr/src/python
-tar --extract --directory /usr/src/python --strip-components=1 --file python.tar.xz
-rm python.tar.xz
-cd /usr/src/python
-
-# Configure
-gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"
-export CC=clang
-export CXX=clang++
-CC=clang CXX=clang++ ./configure \
-    --prefix="$PYTHON_PREFIX" \
-    --build="$gnuArch" \
-    --enable-loadable-sqlite-extensions \
-    --enable-option-checking=fatal \
-    --enable-shared \
-    $(test "$gnuArch" != 'riscv64-linux-musl' && echo '--with-lto') \
-    --with-ensurepip
-
-nproc="$(nproc)"
-EXTRA_CFLAGS="-DTHREAD_STACK_SIZE=0x100000"
-LDFLAGS="${LDFLAGS:--Wl},--strip-all,-fuse-ld=mold"
-arch="$(apk --print-arch)"
-case "$arch" in
-    x86_64|aarch64)
-        EXTRA_CFLAGS="${EXTRA_CFLAGS:-} -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer"
-        ;;
-    x86)
-        ;;
-    *)
-        EXTRA_CFLAGS="${EXTRA_CFLAGS:-} -fno-omit-frame-pointer"
-        ;;
-esac
-
-# ビルドとインストール
-JOBS="$(($(nproc) *2 + 1))"
-make -j"${JOBS}" "EXTRA_CFLAGS=${EXTRA_CFLAGS:-}" "LDFLAGS=${LDFLAGS:-}"
-rm python
-make -j "${JOBS}" "EXTRA_CFLAGS=${EXTRA_CFLAGS:-}" "LDFLAGS=${LDFLAGS:--Wl},-rpath='\$\$ORIGIN/../lib'" python
-make install
-cd /
-rm -rf /usr/src/python
-
-# 軽量化のため、pycおよびpyoは削除しておく
-find ${PYTHON_PREFIX} -depth \
-    \( \
-        \( -type d -a \( -name test -o -name tests -o -name idle_test \) \) \
-        -o \( -type f -a \( -name '*.pyc' -o -name '*.pyo' -o -name 'libpython*.a' \) \) \
-    \) -exec rm -rf '{}' +
-
-# クリーンナップ処理(もしかし不要?)
-apk del --no-network .build-deps
-export PATH=${PYTHON_PREFIX}/bin:$PATH
-export PYTHONDONTWRITEBYTECODE=1
-# Pythonのバージョンを確認のため出力
-python3 --version
-pip3 --version
-EOM
-
-# pythonビルドステージで依存soからapkパッケージ名リストを生成して保存
-RUN <<EOM
-set -eux
-find "${PYTHON_PREFIX}" -type f -executable -not \( -name '*tkinter*' \) \
-    -exec scanelf --needed --nobanner --format '%n#p' '{}' ';' \
-    | tr ',' '\n' \
-    | sort -u \
-    | awk 'system("[ -e ${PYTHON_PREFIX}/lib/" $1 " ]") == 0 { next } { print $1 }' \
-    > ${PYTHON_PREFIX}/.needed-libs.txt
-# ここでso:libxxx.so.*のリストができる
-EOM
-
-FROM php:8.3-alpine3.21 AS php-exts
-
+FROM php:${PHP_VERSION}-alpine${ALPINE_VERSION} AS php-exts
 
 WORKDIR /usr/local
 RUN <<EOM
@@ -127,28 +28,19 @@ RUN <<EOM
     apk del .build-deps
 EOM
 
-FROM php:8.3-alpine3.21
+FROM php:${PHP_VERSION}-alpine${ALPINE_VERSION}
 ARG USER_NAME=vscode
 ARG USER_UID=1000
 ARG USER_GID=1000
 
 ARG PYTHON_VERSION
-ARG PYTHON_PREFIX
 
 
+COPY --from=python-source /usr/local /usr/local
 COPY --from=uv-source /usr/local/bin/uv /usr/local/bin/uvx /opt/uv/
-COPY --from=python ${PYTHON_PREFIX} ${PYTHON_PREFIX}
 COPY --from=php-exts /tmp/exts.tar.gz /tmp/
 
-ENV PATH=${PYTHON_PREFIX}/bin:/opt/uv:$PATH
-
-RUN set -eux; \
-  for src in idle3 pip3 pydoc3 python3 python3-config; do \
-    dst="$(echo "$src" | tr -d 3)"; \
-    [ -s "${PYTHON_PREFIX}/bin/$src" ]; \
-    [ ! -e "/usr/local/bin/$dst" ]; \
-    ln -svT "$src" "/usr/local/bin/$dst"; \
-  done
+ENV PATH=/opt/uv:$PATH
 
 RUN tar xvzf /tmp/exts.tar.gz -C / && \
     rm -f /tmp/exts.tar.gz && \
@@ -164,32 +56,22 @@ RUN apk add --no-cache tzdata && \
 RUN addgroup -g ${USER_GID} ${USER_NAME} && \
     adduser -D -u ${USER_UID} -G ${USER_NAME} ${USER_NAME}
 
-RUN apk add --no-cache git xz libzip
-
 RUN <<EOM
-set -eux
-
-so_list=$(cat ${PYTHON_PREFIX}/.needed-libs.txt)
-pkgs=""
-for so in $so_list; do
-  case "$so" in
-    libbz2.so.1) pkgs="$pkgs bzip2";;
-    libffi.so.8) pkgs="$pkgs libffi";;
-    libgdbm.so.6|libgdbm_compat.so.4) pkgs="$pkgs gdbm";;
-    liblzma.so.5) pkgs="$pkgs xz-libs";;
-    libncursesw.so.6|libpanelw.so.6) pkgs="$pkgs ncurses-libs";;
-    libreadline.so.8) pkgs="$pkgs readline";;
-    libsqlite3.so.0) pkgs="$pkgs sqlite-libs";;
-    libssl.so.3|libcrypto.so.3) pkgs="$pkgs openssl";;
-    libuuid.so.1) pkgs="$pkgs libuuid";;
-    libz.so.1) pkgs="$pkgs zlib";;
-    libc.musl-*.so.1) ;; # musl libcは無視
-    *) echo "Unmapped so: $so" ;;
-  esac
-done
-apk add --no-cache $pkgs
-
+# Pythonのdynloadで構成されたライブラリで、必要なものを抽出してインストールする
+LIST=$(mktemp)
+cd /usr/local/lib/python${PYTHON_VERSION%.*}/lib-dynload
+for so in *.so; do
+    ldd $so 2>&1 | grep '^Error loading shared library' | awk '{print $5}' |
+    cut -d: -f1 | sed -e 's/^/so:/'
+done >> "${LIST}"
+# LISTで追加で必要なライブラリがあれば、インストールする(ファイルサイズが空か否かで判断)
+if [ -s "${LIST}" ]; then
+    apk add --no-cache $(cat "${LIST}")
+fi
+apk add --no-cache git xz libzip 
+rm -f "${LIST}"
 EOM
+
 
 ENV LC_ALL=ja_JP.UTF-8
 ENV LANG=ja_JP.UTF-8
