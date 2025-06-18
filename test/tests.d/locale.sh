@@ -1,4 +1,5 @@
 #!/bin/sh
+set -euo pipefail
 # ロケールが日本になっていることを確認する
 # - LC_ALLがja_JP.UTF-8になっていることを確認する
 REQUIRED_LOCALE="ja_JP.UTF-8"
