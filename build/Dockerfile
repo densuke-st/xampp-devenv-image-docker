@@ -75,7 +75,7 @@ RUN <<EOT
 EOT
 COPY pecl-xdebug.ini /usr/local/etc/php/conf.d/
 # COPYを使うとタイムスタンプが更新されないため、ここでtouchしておく
-RUN test -f /usr/local/etc/php/conf.d/pecl-xdebug.ini || touch /usr/local/etc/php/conf.d/pecl-xdebug.ini
+RUN test -f /usr/local/etc/php/conf.d/pecl-xdebug.ini && touch /usr/local/etc/php/conf.d/pecl-xdebug.ini
 
 # ユーザーを追加し、sudo権限を付与
 RUN <<EOT
