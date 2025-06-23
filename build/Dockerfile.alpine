@@ -15,13 +15,17 @@ WORKDIR /usr/local
 RUN <<EOM
     set -e
     export MAKEFLAGS="-j$(($(nproc) * 2 + 1))"
-    apk add --no-cache --virtual .build-deps libzip-dev clang clang-dev llvm mold 
+    # PHP_VERSIONからphpXX-devパッケージの名称を作成(例: 8.3 -> php83-dev)
+    PHP_DEV_PKG="php$(echo $PHP_VERSION | awk -F. '{print $1$2}')-dev"
+    echo "PHP_DEV_PKG=${PHP_DEV_PKG}"
+    apk add --no-cache --virtual .build-deps libzip-dev clang clang-dev llvm mold ${PHP_DEV_PKG} linux-headers make
     touch /tmp/now
     touch /tmp/basefile
     export CC=clang
     export CXX=clang++
     export LDFLAGS="-fuse-ld=mold"
     docker-php-ext-install mysqli pdo_mysql zip
+    pecl install xdebug
     find /usr/local -newer /tmp/now -type f > /tmp/files
     tar cvzf /tmp/exts.tar.gz $(cat /tmp/files)
     rm -f /tmp/now /tmp/basefile /tmp/files
@@ -47,6 +51,8 @@ RUN tar xvzf /tmp/exts.tar.gz -C / && \
     cd /usr/local/etc/php && \
     ln -sf php.ini-development php.ini && \
     echo "date.timezone = Asia/Tokyo" >> php.ini
+COPY pecl-xdebug.ini /usr/local/etc/php/conf.d/
+#RUN test -f /usr/local/etc/php/conf.d/pecl-xdebug.ini && touch /usr/local/etc/php/conf.d/pecl-xdebug.ini
 
 RUN apk add --no-cache tzdata && \
     cp /usr/share/zoneinfo/Asia/Tokyo /etc/localtime && \

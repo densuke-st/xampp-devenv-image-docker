@@ -21,12 +21,12 @@ RUN <<EOT
     export CC=clang
     export CXX=clang++
     docker-php-ext-install mysqli pdo_mysql zip &&
+    pecl install xdebug &&
     apt-get purge --auto-remove --purge -y libzip-dev mold clang &&
     # クリーンナップ
     apt-get clean &&
     rm -fr /var/lib/apt/lists/* 
 EOT
-
 # ビルド後の変化のあったファイルをアーカイブする、タイミングは/tmp/now以降
 RUN tar cvzf /exts.tar.gz $( find lib/php etc/php -type f -newer /tmp/now )
 RUN tar tvzf /exts.tar.gz
@@ -73,6 +73,9 @@ RUN <<EOT
     apt-get clean && rm -fr /var/lib/apt/lists/*
 
 EOT
+COPY pecl-xdebug.ini /usr/local/etc/php/conf.d/
+# COPYを使うとタイムスタンプが更新されないため、ここでtouchしておく
+RUN test -f /usr/local/etc/php/conf.d/pecl-xdebug.ini || touch /usr/local/etc/php/conf.d/pecl-xdebug.ini
 
 # ユーザーを追加し、sudo権限を付与
 RUN <<EOT
