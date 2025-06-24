@@ -51,7 +51,7 @@ RUN tar xvzf /tmp/exts.tar.gz -C / && \
     cd /usr/local/etc/php && \
     ln -sf php.ini-development php.ini && \
     echo "date.timezone = Asia/Tokyo" >> php.ini
-COPY pecl-xdebug.ini /usr/local/etc/php/conf.d/
+COPY ./build/pecl-xdebug.ini /usr/local/etc/php/conf.d/
 
 RUN apk add --no-cache tzdata && \
     cp /usr/share/zoneinfo/Asia/Tokyo /etc/localtime && \

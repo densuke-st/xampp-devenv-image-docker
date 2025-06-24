@@ -2,15 +2,15 @@ services:
   ubuntu:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: ./build/Dockerfile
     volumes:
-      - ../test:/test
+      - ./test:/test
     command: tail -f /dev/null
 
   alpine:
     build:
       context: .
-      dockerfile: Dockerfile.alpine
+      dockerfile: ./build/Dockerfile.alpine
     volumes:
-      - ../test:/test
+      - ./test:/test
     command: tail -f /dev/null
