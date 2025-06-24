@@ -98,7 +98,7 @@ jobs:
         - name: "イメージのビルド"
           uses: docker/build-push-action@v5
           with:
-            context: ./build
+            context: .
             file: ./build/Dockerfile.alpine
             platforms: ${{ matrix.platform }}
             # あくまでビルドのテスト用です、よってイメージのプッシュは行いません
