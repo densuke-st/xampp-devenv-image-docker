@@ -1,7 +1,7 @@
 #!/bin/sh
 # PHPモジュールの確認
 # Dockerfile上で入っているべきモジュールの一覧
-REQUIRED_MODULES="mysqli pdo_mysql zip"
+REQUIRED_MODULES="mysqli pdo_mysql zip xdebug"
 
 # 実際にインストールされているモジュールの一覧
 INSTALLED_MODULES=$(php -m)

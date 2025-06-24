@@ -68,20 +68,17 @@ jobs:
         - name: "イメージのビルド"
           run: |
             set -e
-            cd build
             # キャッシュに乗った文が使われる続けると困るので、--pull buildで対応
             docker compose create --pull build --quiet-pull ${{ matrix.type }}
             docker compose up ${{ matrix.type }} -d
         - name: "イメージのテスト"
           run: |
             set -ex
-            cd build
             docker compose exec ${{ matrix.type }} sh /test/run.sh ${{ matrix.type }}
         - name: "イメージのクリーンアップ"
           if: always() && ${{ needs.check-act.outputs.IS_ACT != 'true' }}
           run: |
             set -e
-            cd build
             docker compose down -t 1 -v --rmi local --remove-orphans || true
             # キャッシュの恩恵を受けるため、イメージキャッシュは残してコンテナは削除する
             docker container prune -f || true
