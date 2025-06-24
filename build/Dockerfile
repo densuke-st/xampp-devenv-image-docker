@@ -73,7 +73,7 @@ RUN <<EOT
     apt-get clean && rm -fr /var/lib/apt/lists/*
 
 EOT
-COPY pecl-xdebug.ini /usr/local/etc/php/conf.d/
+COPY build/pecl-xdebug.ini /usr/local/etc/php/conf.d/
 
 # ユーザーを追加し、sudo権限を付与
 RUN <<EOT
